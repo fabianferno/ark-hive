@@ -1,0 +1,15 @@
+node_modules
+.next
+*.tsbuildinfo
+.env*.local
+out/
+coverage/
+node_modules
+/docs
+IDEA.md
+# installed tooling / runtime artifacts
+.agents/
+bun.lock
+skills-lock.json
+IDEA.md
+docs/
