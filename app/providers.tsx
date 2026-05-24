@@ -14,7 +14,11 @@ export function Providers({ children }: { children: ReactNode }) {
         // Embedded-wallet only: email/social login → app-managed wallet. Avoids
         // external connectors (e.g. Coinbase Smart Wallet) that reject Braga.
         loginMethods: ["email", "google"],
-        embeddedWallets: { ethereum: { createOnLogin: "all-users" } },
+        // showWalletUIs:false → embedded-wallet txs/signatures auto-sign with no
+        // confirmation modal. A chat turn does ~5 Arkiv writes + close/index many
+        // more; per-tx modals stacked into a "Privy loop". User owns the wallet →
+        // sign seamlessly.
+        embeddedWallets: { ethereum: { createOnLogin: "all-users" }, showWalletUIs: false },
         supportedChains: [braga as any, sepolia],
         defaultChain: braga as any,
         appearance: { theme: "dark", accentColor: "#22C55E", walletList: [] },
