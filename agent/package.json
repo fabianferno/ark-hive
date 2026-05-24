@@ -14,7 +14,8 @@
     "smoke:brain": "tsx scripts/smoke-brain.ts",
     "smoke:chat": "tsx scripts/smoke-chat.ts",
     "postinstall": "patch-package",
-    "smoke:card": "tsx scripts/smoke-card.ts"
+    "smoke:card": "tsx scripts/smoke-card.ts",
+    "smoke:rag": "tsx scripts/smoke-rag.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "^0.6.8",

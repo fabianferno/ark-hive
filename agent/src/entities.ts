@@ -7,6 +7,10 @@ export const ENTITY = {
   message: "message",
   snapshot: "snapshot",
   memory: "memory",
+  summary: "summary",
+  topic: "topic",
+  summaryTopic: "summaryTopic",
+  summaryLink: "summaryLink",
 } as const;
 
 export interface AgentCardFields { agentId: string; registryChainId: number; status: string; createdAt: number; agentCardUri: string; }
@@ -63,5 +67,40 @@ export const memoryAttrs = (p: ProjectAttr, f: MemoryFields): Attr[] => [
   { key: "memKey", value: f.memKey },
   { key: "source", value: f.source },
   { key: "version", value: f.version },
+  { key: "createdAt", value: f.createdAt },
+];
+
+export interface SummaryFields { agentId: string; callerId: string; sessionKey: string; summarySeq: number; createdAt: number; }
+export interface TopicFields { agentId: string; callerId: string; topicKey: string; createdAt: number; }
+export interface SummaryTopicFields { agentId: string; callerId: string; summaryKey: string; topicKey: string; sessionKey: string; createdAt: number; }
+export interface SummaryLinkFields { agentId: string; callerId: string; srcSummaryKey: string; dstSummaryKey: string; score: number; createdAt: number; }
+
+export const summaryAttrs = (p: ProjectAttr, f: SummaryFields): Attr[] => [
+  ...base(p, ENTITY.summary, f.agentId),
+  { key: "callerId", value: f.callerId },
+  { key: "sessionKey", value: f.sessionKey },
+  { key: "summarySeq", value: f.summarySeq },
+  { key: "createdAt", value: f.createdAt },
+];
+export const topicAttrs = (p: ProjectAttr, f: TopicFields): Attr[] => [
+  ...base(p, ENTITY.topic, f.agentId),
+  { key: "callerId", value: f.callerId },
+  { key: "topicKey", value: f.topicKey },
+  { key: "createdAt", value: f.createdAt },
+];
+export const summaryTopicAttrs = (p: ProjectAttr, f: SummaryTopicFields): Attr[] => [
+  ...base(p, ENTITY.summaryTopic, f.agentId),
+  { key: "callerId", value: f.callerId },
+  { key: "summaryKey", value: f.summaryKey },
+  { key: "topicKey", value: f.topicKey },
+  { key: "sessionKey", value: f.sessionKey },
+  { key: "createdAt", value: f.createdAt },
+];
+export const summaryLinkAttrs = (p: ProjectAttr, f: SummaryLinkFields): Attr[] => [
+  ...base(p, ENTITY.summaryLink, f.agentId),
+  { key: "callerId", value: f.callerId },
+  { key: "srcSummaryKey", value: f.srcSummaryKey },
+  { key: "dstSummaryKey", value: f.dstSummaryKey },
+  { key: "score", value: f.score },
   { key: "createdAt", value: f.createdAt },
 ];

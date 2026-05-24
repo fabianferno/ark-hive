@@ -4,6 +4,8 @@ import { respond, type ChatTurn } from "./brain";
 import { searchKnowledge } from "./search";
 import { get as ctxGet, set as ctxSet } from "./contextbus";
 import { computeCommitHash } from "./hashchain";
+import { retrieve, indexSession } from "./rag/rag";
+import { loadConfig } from "./config";
 
 async function loadSession(sessionKey: string) {
   const rows = await query([
@@ -53,6 +55,9 @@ export async function chatTurn(sessionKey: string, text: string): Promise<TurnRe
   const priorGoal = await ctxGet("goal", { run: sessionKey, entity: callerId, global: agentId });
   if (priorGoal) knowledge.push(`[goal] ${priorGoal}`);
 
+  const past = await retrieve(text, { agentId, callerId });
+  for (const s of past) knowledge.push(`[past-session] ${s}`);
+
   const reply = await respond({ message: text, history: turns, knowledge });
 
   const userSeq = lastSeq + 1;
@@ -69,7 +74,15 @@ export async function chatTurn(sessionKey: string, text: string): Promise<TurnRe
   });
 
   await ctxSet({ agentId, scope: "run", scopeKey: sessionKey, memKey: "lastReply", value: reply, version: commitSeq });
-  await Repo.updateSessionActivity(sessionKey, assistantSeq + 1);
+  await Repo.updateSessionActivity({ sessionKey, agentId, callerId, startedAt: Number(session.attrs.startedAt ?? Date.now()), turnCount: assistantSeq + 1 });
+
+  const rollEvery = loadConfig().ragRollEvery;
+  const totalTurns = assistantSeq + 1;
+  if (rollEvery > 0 && totalTurns % rollEvery === 0) {
+    const seq = Math.floor(totalTurns / rollEvery);
+    try { await indexSession({ agentId, callerId, sessionKey, summarySeq: seq }); }
+    catch (e) { console.warn("rolling indexSession failed:", (e as Error).message); }
+  }
 
   return { reply, userKey: user.entityKey, assistantKey: assistant.entityKey, snapshotKey: snap.entityKey };
 }

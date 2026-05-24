@@ -20,6 +20,9 @@ export interface AgentConfig {
   agentVersion: string;
   agentImage: string;
   agentContact: string;
+  embeddingModel: string;
+  ragRollEvery: number;
+  ragTopK: number;
 }
 
 export function loadConfig(env: Env = process.env): AgentConfig {
@@ -37,5 +40,8 @@ export function loadConfig(env: Env = process.env): AgentConfig {
     agentVersion: env.AGENT_VERSION ?? "1.0.0",
     agentImage: env.AGENT_IMAGE ?? "",
     agentContact: env.AGENT_CONTACT ?? "",
+    embeddingModel: env.EMBEDDING_MODEL ?? "text-embedding-3-small",
+    ragRollEvery: Number(env.RAG_ROLL_EVERY ?? 10),
+    ragTopK: Number(env.RAG_TOP_K ?? 4),
   };
 }

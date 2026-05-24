@@ -17,4 +17,10 @@ describe("config", () => {
     expect(c.bragaRpc).toContain("braga");
     expect(c.port).toBe(8787);
   });
+  it("loadConfig provides RAG defaults", () => {
+    const c = loadConfig({ AGENT_PRIVATE_KEY: "0x", OPENAI_API_KEY: "k", PROJECT_VALUE: "p", AGENT_DOMAIN: "d" });
+    expect(c.embeddingModel).toBe("text-embedding-3-small");
+    expect(c.ragRollEvery).toBe(10);
+    expect(c.ragTopK).toBe(4);
+  });
 });
