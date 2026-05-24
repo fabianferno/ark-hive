@@ -94,6 +94,64 @@ ContextBus store. Cascade resolution **run → entity → global** (first hit wi
 
 ---
 
+## RAG entities (connected session-summary retrieval)
+
+Per-session summaries, embedded and linked into a per-user topic + similarity graph. Written on session close and on a rolling turn cap. Retrieval = tag filter (topic edges) → in-process embedding cosine re-rank (Arkiv has no vector index). All scoped to `agentId` + `callerId`.
+
+### SessionSummary
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` / `entityType` / `agentId` | str | eq | `entityType` = `summary` |
+| `callerId` | str | eq | per-user scope |
+| `sessionKey` | str | eq | source session |
+| `summarySeq` | **num** | range | rolling version (latest wins) |
+| `createdAt` | **num** | range | epoch ms |
+
+- **Payload:** `{ summary, topics[], embedding[] }` (embedding from OpenAI `text-embedding-3-small`).
+- **expiresIn:** `fromDays(365)`.
+
+### Topic
+Canonical, deduped topic node (find-or-create by `topicKey`).
+
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` / `entityType` / `agentId` | str | eq | `entityType` = `topic` |
+| `callerId` | str | eq | per-user scope |
+| `topicKey` | str | eq | normalized slug (`normalizeTopic`) |
+| `createdAt` | **num** | range | |
+
+- **Payload:** `{ name }`. **expiresIn:** `fromDays(365)`.
+
+### SummaryTopic (link edge — summary ↔ topic)
+Many-to-many edge enabling topic fetch.
+
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` / `entityType` / `agentId` | str | eq | `entityType` = `summaryTopic` |
+| `callerId` | str | eq | |
+| `summaryKey` | str | eq | SessionSummary entity key |
+| `topicKey` | str | eq | Topic slug |
+| `sessionKey` | str | eq | |
+| `createdAt` | **num** | range | |
+
+- **Payload:** `{}`. **expiresIn:** `fromDays(365)`.
+
+### SummaryLink (kNN edge — summary ↔ summary)
+"Related sessions" similarity edges (top-k by embedding cosine at index time).
+
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` / `entityType` / `agentId` | str | eq | `entityType` = `summaryLink` |
+| `callerId` | str | eq | |
+| `srcSummaryKey` | str | eq | new summary |
+| `dstSummaryKey` | str | eq | neighbor summary |
+| `score` | **num** | range | cosine ×1000 (per-mille integer — Arkiv numeric attrs must be integers) |
+| `createdAt` | **num** | range | |
+
+- **Payload:** `{}`. **expiresIn:** `fromDays(365)`.
+
+---
+
 ## Query patterns
 
 - **Browse agents:** `eq(project) ∧ eq(entityType,"agentCard")` + `.createdBy(AGENT_ADDRESS)`.
@@ -101,3 +159,6 @@ ContextBus store. Cascade resolution **run → entity → global** (first hit wi
 - **Snapshot chain:** `eq(project) ∧ eq(entityType,"snapshot") ∧ eq(sessionKey,K)` → sort by `commitSeq`.
 - **Memory search:** `eq(project) ∧ eq(entityType,"memory") ∧ eq(agentId,A)` [`∧ eq(scope,S)`] [`∧ gt(createdAt,since)`].
 - **Context get (cascade):** for each scope in `[run, entity, global]`, `eq(scope) ∧ eq(scopeKey) ∧ eq(memKey)` limit 1; stop at first hit.
+- **Topic fetch:** `eq(entityType,"summaryTopic") ∧ eq(agentId,A) ∧ eq(callerId,C) ∧ eq(topicKey,T)` → `summaryKey`s → fetch summaries.
+- **RAG retrieve:** gather candidate summaries (topic-gated via `summaryTopic`, else recent `eq(entityType,"summary") ∧ eq(callerId,C)`) → re-rank by cosine of `embedding` vs query embedding → top-k.
+- **Related sessions:** `eq(entityType,"summaryLink") ∧ eq(srcSummaryKey,S)` → `dstSummaryKey`s.
