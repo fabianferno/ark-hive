@@ -11,12 +11,13 @@ export default function AgentsPage() {
   const [open, setOpen] = useState(false);
   const list = useAgentsList();
   const create = useCreateAgent();
+  const close = () => { setOpen(false); create.reset(); };
   return (
     <AppShell>
       <AgentList agents={list.data ?? []} loading={list.isLoading}
-        onOpen={(id) => router.push(`/agents/${id}`)} onNew={() => setOpen(true)} />
-      <NewAgentDialog open={open} creating={create.isPending} onClose={() => setOpen(false)}
-        onCreate={(input) => create.mutate(input, { onSuccess: () => setOpen(false) })} />
+        onOpen={(id) => router.push(`/agents/${id}`)} onNew={() => { create.reset(); setOpen(true); }} />
+      <NewAgentDialog open={open} creating={create.isPending} result={create.data} onClose={close}
+        onCreate={(input) => create.mutate(input)} />
     </AppShell>
   );
 }
