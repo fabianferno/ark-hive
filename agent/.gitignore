@@ -1,0 +1,7 @@
+node_modules
+.env
+*.tsbuildinfo
+
+# runtime secrets/artifacts
+keys/
+chaoschain_agent_ids.json

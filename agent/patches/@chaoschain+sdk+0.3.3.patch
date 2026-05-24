@@ -1,0 +1,26 @@
+diff --git a/node_modules/@chaoschain/sdk/dist/index.cjs b/node_modules/@chaoschain/sdk/dist/index.cjs
+index 7b0066e..9c1ef8a 100644
+--- a/node_modules/@chaoschain/sdk/dist/index.cjs
++++ b/node_modules/@chaoschain/sdk/dist/index.cjs
+@@ -11835,7 +11835,7 @@ var ChaosAgent = class {
+     const cache = fs3__namespace.default.existsSync(cacheFile) ? JSON.parse(fs3__namespace.default.readFileSync(cacheFile, "utf-8")) : {};
+     cache[String(chainId)] = cache[String(chainId)] ?? {};
+     cache[String(chainId)][wallet.toLowerCase()] = {
+-      agentId,
++      agentId: String(agentId),
+       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+       domain
+     };
+diff --git a/node_modules/@chaoschain/sdk/package.json b/node_modules/@chaoschain/sdk/package.json
+index e52e287..11390aa 100644
+--- a/node_modules/@chaoschain/sdk/package.json
++++ b/node_modules/@chaoschain/sdk/package.json
+@@ -9,7 +9,7 @@
+   "exports": {
+     ".": {
+       "types": "./dist/index.d.ts",
+-      "import": "./dist/index.js",
++      "import": "./dist/index.cjs",
+       "require": "./dist/index.cjs"
+     },
+     "./session": {
