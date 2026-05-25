@@ -13,10 +13,12 @@ import {
   ArrowRight,
   Fingerprint,
   MessageSquare,
+  Presentation,
 } from "lucide-react";
 import { AppBrand } from "@/components/app/AppBrand";
 import { GlowCard } from "@/components/ui/GlowCard";
 import { IconChip } from "@/components/ui/IconChip";
+import { SmoothScroll } from "@/components/SmoothScroll";
 
 const WireframeSphere = dynamic(
   () => import("./WireframeSphere").then((m) => m.WireframeSphere),
@@ -75,24 +77,34 @@ const fadeUp = {
 
 export function Landing() {
   return (
+    <SmoothScroll>
     <div className="min-h-dvh">
       {/* Nav */}
-      <header className="sticky max-w-6xl rounded-full mx-auto top-3 z-20 border-b border-border bg-bg/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <AppBrand />
-          <div className="flex items-center gap-3">
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-ghost hidden sm:inline-flex"
-            >
-              <GitBranch size={16} /> GitHub
-            </a>
-            <Link href="/agents" className="btn-primary">
-              Launch App <ArrowRight size={15} />
-            </Link>
-          </div>
+      <header className="sticky top-3 z-20 mx-auto flex max-w-5xl items-center justify-between gap-4 rounded-full border border-border bg-bg/70 py-2 pl-5 pr-2 backdrop-blur-xl">
+        <AppBrand />
+        <nav className="hidden items-center gap-1 md:flex">
+          <a href="#features" className="nav-link">
+            Features
+          </a>
+          <a href="#how" className="nav-link">
+            How it works
+          </a>
+          <Link href="/pitch" className="nav-link inline-flex items-center gap-1.5 text-accent">
+            <Presentation size={14} /> Pitch
+          </Link>
+        </nav>
+        <div className="flex items-center gap-2">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost hidden sm:inline-flex"
+          >
+            <GitBranch size={16} /> GitHub
+          </a>
+          <Link href="/agents" className="btn-primary">
+            Launch App <ArrowRight size={15} />
+          </Link>
         </div>
       </header>
 
@@ -163,7 +175,7 @@ export function Landing() {
       </section>
 
       {/* Features */}
-      <Section>
+      <Section id="features">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map(({ icon: Icon, title, desc }) => (
             <GlowCard key={title} variant="neutral" interactive className="p-5">
@@ -180,7 +192,7 @@ export function Landing() {
       </Section>
 
       {/* How it works */}
-      <Section>
+      <Section id="how">
         <div className="mb-10 text-center">
           <h2 className="font-display text-2xl font-bold tracking-tight text-fg sm:text-3xl">
             How it works
@@ -250,18 +262,20 @@ export function Landing() {
         </div>
       </footer>
     </div>
+    </SmoothScroll>
   );
 }
 
-function Section({ children }: { children: React.ReactNode }) {
+function Section({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
     <motion.section
+      id={id}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: "-80px" }}
       variants={fadeUp}
       transition={{ duration: 0.5 }}
-      className="mx-auto max-w-6xl px-6 py-12"
+      className="mx-auto max-w-6xl scroll-mt-24 px-6 py-12"
     >
       {children}
     </motion.section>

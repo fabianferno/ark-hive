@@ -105,4 +105,20 @@
     @apply inline-flex items-center gap-1 rounded-full border border-border bg-white/[0.03]
            px-2.5 py-1 font-mono text-xs text-accent;
   }
+
+  .nav-link {
+    @apply rounded-full px-3 py-1.5 font-sans text-sm font-medium text-fg-muted transition-colors
+           hover:bg-surface-2 hover:text-fg;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
