@@ -15,17 +15,60 @@ function readAccent(): THREE.Color {
   return new THREE.Color(r / 255, g / 255, b / 255);
 }
 
+// Custom point shader: each node is drawn as a round, soft-edged glow computed
+// from gl_PointCoord. A PointsMaterial without a working texture renders hard
+// squares — this discards everything outside a circle, so it can never be square.
+const NODE_VERT = /* glsl */ `
+  uniform float uSize;
+  uniform float uScale; // 0.5 * drawingBufferHeight, for perspective attenuation
+  uniform float uTime;
+  uniform float uPulse; // 0 freezes the wave into a static gradient (reduced motion)
+  attribute float aGrad; // 0..1 position along the sweep axis
+  varying float vAlpha;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    // traveling wave: a band of large nodes sweeps across the axis over time
+    float wave = sin(aGrad * 6.2831 - uTime * 1.2) * 0.5 + 0.5; // 0..1
+    float amt = mix(aGrad, wave, uPulse); // reduced motion -> static big->small
+    float size = uSize * (0.35 + amt * 2.0); // small..big
+    gl_PointSize = size * (uScale / -mv.z);
+    vAlpha = 0.5 + amt * 0.5; // big nodes glow brighter
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const NODE_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  varying float vAlpha;
+  void main() {
+    // distance from point center: 0 at core, 1 at the quad edge
+    float d = length(gl_PointCoord - 0.5) * 2.0;
+    if (d > 1.0) discard;
+    float glow = 1.0 - d;
+    float core = pow(glow, 1.6);   // soft falloff
+    float alpha = core * vAlpha;
+    // brighten the core toward white so additive blending blooms
+    vec3 col = mix(uColor, vec3(1.0), pow(glow, 4.0) * 0.7);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
 export function WireframeSphere() {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      // still render once, just don't spin
-    }
+
     const reduceMotion =
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    const BASE_ROT_X = 0.35;
+    const MAX_TILT_Y = 0.65;
+    const MAX_TILT_X = 0.45;
+    const LERP = 0.07;
+    const IDLE_DELAY_MS = 1200;
+    const IDLE_SPIN = 0.18;
 
     let w = mount.clientWidth || 1;
     let h = mount.clientHeight || 1;
@@ -53,39 +96,82 @@ export function WireframeSphere() {
     );
     group.add(lines);
 
-    // vertices as faint glowing points
-    const points = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        color: accent,
-        size: 0.045,
-        transparent: true,
-        opacity: 0.9,
-        sizeAttenuation: true,
-      })
-    );
+    // vertices as glowing nodes — round, additive-blended glow via custom shader
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+    const NODE_SIZE = 0.16;
+
+    // aGrad: each node's 0..1 position along the sweep axis (the shader uses this
+    // to make a "big" band pulse across the sphere over time). Swap axis/sign to
+    // change the sweep direction. Fixed in object space, so it spins with the sphere.
+    const SPHERE_R = 1.6;
+    const pos = geo.attributes.position;
+    const nodeCount = pos.count;
+    const grad = new Float32Array(nodeCount);
+    for (let i = 0; i < nodeCount; i++) {
+      grad[i] = (pos.getX(i) + SPHERE_R) / (2 * SPHERE_R); // 0 on -X side, 1 on +X side
+    }
+    geo.setAttribute("aGrad", new THREE.BufferAttribute(grad, 1));
+
+    const pointsMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: accent.clone() },
+        uSize: { value: NODE_SIZE },
+        uScale: { value: 0.5 * h * pixelRatio },
+        uTime: { value: 0 },
+        uPulse: { value: reduceMotion ? 0 : 1 },
+      },
+      vertexShader: NODE_VERT,
+      fragmentShader: NODE_FRAG,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false, // near nodes shouldn't occlude the bloom of far ones
+    });
+    const points = new THREE.Points(geo, pointsMat);
     group.add(points);
 
-    // faint larger halo sphere for depth
-    const haloGeo = new THREE.IcosahedronGeometry(2.05, 2);
-    const halo = new THREE.LineSegments(
-      new THREE.WireframeGeometry(haloGeo),
-      new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.12 })
-    );
-    group.add(halo);
-
-    group.rotation.x = 0.35;
+    group.rotation.x = BASE_ROT_X;
     scene.add(group);
 
-    let raf = 0;
+    const mouse = { x: 0, y: 0 };
+    const current = { x: BASE_ROT_X, y: 0 };
+    let idleAngle = 0;
+    let lastMove = 0;
     const clock = new THREE.Clock();
+
+    const onMouseMove = (e: MouseEvent) => {
+      lastMove = performance.now();
+      const rect = mount.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      mouse.x = THREE.MathUtils.clamp((e.clientX - cx) / (rect.width / 2), -1, 1);
+      mouse.y = THREE.MathUtils.clamp((e.clientY - cy) / (rect.height / 2), -1, 1);
+    };
+
+    const onMouseOut = () => {
+      mouse.x = 0;
+      mouse.y = 0;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    document.documentElement.addEventListener("mouseleave", onMouseOut);
+
+    let raf = 0;
     const animate = () => {
       raf = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      // per-node twinkle is computed in the shader; just advance time
+      // (performance.now so it doesn't consume clock.getDelta() used below)
+      pointsMat.uniforms.uTime.value = performance.now() / 1000;
       if (!reduceMotion) {
-        group.rotation.y = t * 0.18;
-        halo.rotation.y = -t * 0.1;
-        halo.rotation.x = t * 0.06;
+        const dt = clock.getDelta();
+        const idle = performance.now() - lastMove > IDLE_DELAY_MS;
+        if (idle) idleAngle += dt * IDLE_SPIN;
+
+        const targetX = BASE_ROT_X - mouse.y * MAX_TILT_X;
+        const targetY = -mouse.x * MAX_TILT_Y;
+        current.x += (targetX - current.x) * LERP;
+        current.y += (targetY - current.y) * LERP;
+        group.rotation.x = current.x;
+        group.rotation.y = current.y + idleAngle;
       }
       renderer.render(scene, camera);
     };
@@ -97,21 +183,21 @@ export function WireframeSphere() {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      pointsMat.uniforms.uScale.value = 0.5 * h * pixelRatio;
     };
     const ro = new ResizeObserver(onResize);
     ro.observe(mount);
 
     return () => {
       cancelAnimationFrame(raf);
+      window.removeEventListener("mousemove", onMouseMove);
+      document.documentElement.removeEventListener("mouseleave", onMouseOut);
       ro.disconnect();
       geo.dispose();
       wire.dispose();
-      haloGeo.dispose();
       lines.geometry.dispose();
       (lines.material as THREE.Material).dispose();
       (points.material as THREE.Material).dispose();
-      halo.geometry.dispose();
-      (halo.material as THREE.Material).dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
