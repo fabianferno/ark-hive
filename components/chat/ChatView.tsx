@@ -8,9 +8,9 @@ export function ChatView({ messages, onSend, sending }: { messages: UiMessage[];
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
-        {messages.length === 0 && <p className="font-mono text-sm text-slate-400">No messages yet — say hello.</p>}
+        {messages.length === 0 && <p className="font-mono text-sm text-fg-muted">No messages yet — say hello.</p>}
         {messages.map((m) => <MessageBubble key={m.key} message={m} />)}
-        {sending && <p className="font-mono text-xs text-slate-500">agent is thinking…</p>}
+        {sending && <p className="font-mono text-xs text-fg-faint">agent is thinking…</p>}
       </div>
       <Composer onSend={onSend} sending={sending} />
     </div>

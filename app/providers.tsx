@@ -21,7 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
         embeddedWallets: { ethereum: { createOnLogin: "all-users" }, showWalletUIs: false },
         supportedChains: [braga as any, sepolia],
         defaultChain: braga as any,
-        appearance: { theme: "dark", accentColor: "#22C55E", walletList: [] },
+        appearance: { theme: "dark", accentColor: "#A3E635", walletList: [] },
       }}
     >
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>

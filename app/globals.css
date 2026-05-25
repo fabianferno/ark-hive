@@ -1,3 +1,108 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #08090b;
+  --bg-grid: rgba(255, 255, 255, 0.035);
+
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.09);
+
+  --fg: #f4f6f7;
+  --fg-muted: #9ba1a8;
+  --fg-faint: #5b616b;
+
+  --accent-rgb: 163 230 53; /* lime-400 */
+  --accent-strong: #bef264;
+  --accent-ink: #0a0b0d;
+
+  --danger: #f25555;
+  --warning: #f5a524;
+
+  /* layered glow: tinted ring + inset bottom bloom + soft drop */
+  --glow-accent:
+    0 0 0 1px rgb(var(--accent-rgb) / 0.22),
+    inset 0 -44px 70px -28px rgb(var(--accent-rgb) / 0.42),
+    0 24px 70px -26px rgb(var(--accent-rgb) / 0.3);
+  --glow-danger:
+    0 0 0 1px rgb(242 85 85 / 0.22),
+    inset 0 -44px 70px -28px rgb(242 85 85 / 0.4),
+    0 24px 70px -26px rgb(242 85 85 / 0.28);
+  --glow-warning:
+    0 0 0 1px rgb(245 165 36 / 0.22),
+    inset 0 -44px 70px -28px rgb(245 165 36 / 0.4),
+    0 24px 70px -26px rgb(245 165 36 / 0.28);
+  --glow-neutral:
+    0 0 0 1px rgb(255 255 255 / 0.1),
+    inset 0 -44px 70px -30px rgb(255 255 255 / 0.18),
+    0 24px 70px -28px rgb(0 0 0 / 0.5);
+}
+
+@layer base {
+  body {
+    position: relative;
+  }
+  /* faint grid backdrop, radial-masked toward the top — shows through glass surfaces */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--bg-grid) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 65% at 50% -5%, #000 25%, transparent 80%);
+    mask-image: radial-gradient(ellipse 90% 65% at 50% -5%, #000 25%, transparent 80%);
+  }
+  /* app content rides above the grid */
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
+  ::selection {
+    background: rgb(var(--accent-rgb) / 0.28);
+    color: var(--fg);
+  }
+  * {
+    border-color: var(--border);
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-border bg-surface backdrop-blur-xl;
+  }
+  .glass-hover {
+    @apply transition-colors hover:bg-surface-2;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-4 py-2
+           font-sans text-sm font-semibold text-accent-ink transition
+           hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40;
+    box-shadow: 0 6px 24px -8px rgb(var(--accent-rgb) / 0.55);
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-border
+           bg-white/[0.02] px-3 py-2 font-sans text-sm font-medium text-fg-muted transition
+           hover:border-accent/40 hover:bg-surface-2 hover:text-fg
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-border bg-white/[0.03] px-3 py-2 font-sans text-sm
+           text-fg placeholder:text-fg-faint outline-none transition
+           focus:border-accent/50 focus:bg-white/[0.05]
+           focus:ring-2 focus:ring-accent/15;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-white/[0.03]
+           px-2.5 py-1 font-mono text-xs text-accent;
+  }
+}

@@ -27,16 +27,16 @@ export function GraphCanvas({
   const edges: Edge[] = useMemo(
     () => graph.edges.map((e) => ({
       id: e.id, source: e.source, target: e.target, animated: e.kind === "chain",
-      style: { stroke: e.kind === "chain" ? "#22C55E" : "#475569" },
+      style: { stroke: e.kind === "chain" ? "#A3E635" : "rgba(255,255,255,0.18)" },
     })),
     [graph],
   );
   return (
-    <div className="h-full w-full bg-[#0F172A]">
+    <div className="h-full w-full bg-bg">
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView
         onNodeClick={(_, n) => onSelect(n.id)}>
-        <Background color="#272F42" />
-        <MiniMap pannable className="!bg-[#1E293B]" />
+        <Background color="rgba(255,255,255,0.06)" gap={28} />
+        <MiniMap pannable className="!bg-[#101113]" maskColor="rgba(0,0,0,0.6)" />
         <Controls />
       </ReactFlow>
     </div>

@@ -1,2 +1,5 @@
-import { redirect } from "next/navigation";
-export default function Home() { redirect("/agents"); }
+import { Landing } from "@/components/landing/Landing";
+
+export default function Home() {
+  return <Landing />;
+}

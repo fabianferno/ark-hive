@@ -1,6 +1,6 @@
 // app/visualizer/page.tsx
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
 import { getArkivClient } from "@/lib/arkiv/client";
 import { createRepository } from "@/lib/arkiv/repo";
@@ -11,7 +11,9 @@ import { auditSchema, type AuditLog } from "@/lib/arkiv/entities/auditLog";
 import { useEntityList, useDelete } from "@/lib/hooks/useEntity";
 import { useEntityWatch } from "@/lib/hooks/useEntityWatch";
 import { buildGraph, type GraphEntity, type EntityType } from "@/lib/graph/buildGraph";
+import { AppShell } from "@/components/app/AppShell";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
+import { NeuralGraph3D, type NeuralGraph3DHandle } from "@/components/graph/NeuralGraph3D";
 import { TimelineRail, type TimelineEvent } from "@/components/timeline/TimelineRail";
 import { InspectorDrawer, type InspectorEntity } from "@/components/inspector/InspectorDrawer";
 
@@ -50,7 +52,9 @@ function VisualizerInner() {
   }, [aList.isLoading, aList.data?.length, repos]);
 
   const [selected, setSelected] = useState<InspectorEntity | null>(null);
+  const [mode, setMode] = useState<"2d" | "3d">("3d");
   const flow = useReactFlow();
+  const graph3d = useRef<NeuralGraph3DHandle>(null);
 
   const entities: GraphEntity[] = [
     ...(aList.data ?? []).map((e) => ({ key: e.key, type: "AgentCard" as EntityType, attrs: e as unknown as Record<string, AttrValue> })),
@@ -66,26 +70,53 @@ function VisualizerInner() {
   }));
 
   const focus = (nodeId: string) => {
-    const n = flow.getNode(nodeId);
-    if (n) flow.setCenter(n.position.x, n.position.y, { zoom: 1.4, duration: 400 });
+    if (mode === "2d") {
+      const n = flow.getNode(nodeId);
+      if (n) flow.setCenter(n.position.x, n.position.y, { zoom: 1.4, duration: 400 });
+    } else {
+      graph3d.current?.focus(nodeId);
+    }
     const ent = entities.find((e) => e.key === nodeId);
     if (ent) setSelected({ key: ent.key, type: ent.type, fields: ent.attrs as Record<string, string | number> });
   };
 
   return (
-    <main className="flex h-dvh w-full">
+    <div className="flex h-full w-full">
       <div className="relative flex-1">
-        <GraphCanvas graph={graph} onSelect={focus} />
+        {mode === "2d" ? (
+          <GraphCanvas graph={graph} onSelect={focus} />
+        ) : (
+          <NeuralGraph3D ref={graph3d} graph={graph} onSelect={focus} />
+        )}
+
+        {/* 2D / 3D toggle */}
+        <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface p-1 backdrop-blur-md">
+          {(["3d", "2d"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded-full px-4 py-1 text-xs font-medium uppercase tracking-wide transition ${
+                mode === m ? "bg-accent text-accent-ink" : "text-fg-muted hover:text-fg"
+              }`}
+            >
+              {m === "3d" ? "3D Neural" : "2D Graph"}
+            </button>
+          ))}
+        </div>
       </div>
       <TimelineRail events={events} onFocus={focus} />
       <InspectorDrawer
         entity={selected} canEdit={selected?.type === "StateSnapshot"}
         onDelete={(key) => { delSnap.mutate(key); setSelected(null); }}
         onClose={() => setSelected(null)} />
-    </main>
+    </div>
   );
 }
 
 export default function VisualizerPage() {
-  return <ReactFlowProvider><VisualizerInner /></ReactFlowProvider>;
+  return (
+    <AppShell>
+      <ReactFlowProvider><VisualizerInner /></ReactFlowProvider>
+    </AppShell>
+  );
 }

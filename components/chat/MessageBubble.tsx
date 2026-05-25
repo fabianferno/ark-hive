@@ -5,7 +5,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[75%] rounded-lg px-3 py-2 font-sans text-sm ${isUser ? "bg-[#22C55E] text-[#0F172A]" : "bg-[#1E293B] text-[#F8FAFC] border border-[#475569]"}`}>
+      <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 font-sans text-sm ${isUser ? "bg-accent text-accent-ink shadow-[0_6px_24px_-10px_rgb(var(--accent-rgb)/0.6)]" : "border border-border bg-surface text-fg backdrop-blur-md"}`}>
         {message.content}
       </div>
     </div>

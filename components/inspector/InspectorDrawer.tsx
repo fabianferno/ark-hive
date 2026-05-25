@@ -18,23 +18,23 @@ export function InspectorDrawer({
         <motion.div
           initial={{ x: 320, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 320, opacity: 0 }}
           transition={MOTION.spring}
-          className="fixed right-0 top-0 z-40 h-full w-80 border-l border-[#475569] bg-[#1E293B]/90 p-4 backdrop-blur-md">
+          className="fixed right-0 top-0 z-40 h-full w-80 border-l border-border bg-bg/80 p-4 backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-sans text-sm font-semibold text-[#F8FAFC]">{entity.type}</h2>
-            <button aria-label="Close" onClick={onClose} className="text-slate-400 hover:text-[#F8FAFC]">
+            <h2 className="font-display text-sm font-semibold text-fg">{entity.type}</h2>
+            <button aria-label="Close" onClick={onClose} className="text-fg-muted transition-colors hover:text-fg">
               <X size={16} />
             </button>
           </div>
-          <dl className="space-y-1 font-mono text-xs text-[#F8FAFC]">
+          <dl className="space-y-1 font-mono text-xs text-fg">
             {Object.entries(entity.fields).map(([k, v]) => (
               <div key={k} className="flex justify-between gap-2">
-                <dt className="text-slate-400">{k}</dt><dd className="tabular-nums">{String(v)}</dd>
+                <dt className="text-fg-muted">{k}</dt><dd className="tabular-nums">{String(v)}</dd>
               </div>
             ))}
           </dl>
           <button
             onClick={() => onDelete(entity.key)} disabled={!canEdit}
-            className="mt-4 w-full rounded bg-[#EF4444] py-2 font-sans text-sm text-white disabled:opacity-40">
+            className="mt-4 w-full rounded-lg bg-danger py-2 font-sans text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
             Delete
           </button>
         </motion.div>

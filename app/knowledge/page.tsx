@@ -19,10 +19,10 @@ export default function KnowledgePage() {
 
   return (
     <AppShell>
-      <div className="border-b border-[#475569] bg-[#1E293B] px-6 py-3">
-        <label className="mr-2 font-sans text-xs text-slate-400">Agent</label>
+      <div className="border-b border-border px-6 py-3">
+        <label className="mr-2 font-sans text-xs text-fg-muted">Agent</label>
         <select value={agentId} onChange={(e) => { setAgentId(e.target.value); setTopicResults(null); }}
-          className="rounded border border-[#475569] bg-[#0F172A] px-2 py-1.5 font-mono text-xs text-[#F8FAFC]">
+          className="rounded-lg border border-border bg-white/[0.03] px-2 py-1.5 font-mono text-xs text-fg outline-none focus:border-accent/50">
           {(agents.data ?? []).map((a) => (
             <option key={a.key} value={a.agentId}>{a.name || "Unnamed"} · {a.agentId}</option>
           ))}

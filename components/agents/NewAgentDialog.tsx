@@ -16,8 +16,8 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
   const [version, setVersion] = useState("1.0.0");
   const [image, setImage] = useState("");
   const [contact, setContact] = useState("");
-  const field = "w-full rounded border border-[#475569] bg-[#0F172A] px-2 py-1.5 font-sans text-sm text-[#F8FAFC]";
-  const label = "mb-1 block font-sans text-xs text-slate-400";
+  const field = "input";
+  const label = "mb-1 block font-sans text-xs text-fg-muted";
   const submit = () => onCreate({
     name, description, domain,
     capabilities: capabilities.split(",").map((s) => s.trim()).filter(Boolean),
@@ -26,34 +26,34 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <motion.div className="max-h-[90vh] w-[28rem] overflow-y-auto rounded-lg border border-[#475569] bg-[#1E293B] p-5"
+          <motion.div className="max-h-[90vh] w-[28rem] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-glow-neutral backdrop-blur-xl"
             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}>
             {result ? (
               <div className="space-y-3">
-                <h2 className="font-sans text-lg font-semibold text-[#F8FAFC]">Agent Registered</h2>
-                <p className="font-sans text-xs text-slate-400">ERC-8004 identity registered on-chain.</p>
-                <div className="rounded border border-[#475569] bg-[#0F172A] p-3 font-mono text-xs text-slate-300">
-                  <div>agentId <span className="text-[#22C55E]">{result.agentId}</span></div>
+                <h2 className="font-display text-lg font-semibold text-fg">Agent Registered</h2>
+                <p className="font-sans text-xs text-fg-muted">ERC-8004 identity registered on-chain.</p>
+                <div className="rounded-xl border border-border bg-white/[0.03] p-3 font-mono text-xs text-fg-muted">
+                  <div>agentId <span className="text-accent">{result.agentId}</span></div>
                   <div className="mt-1 break-all">txHash {result.txHash}</div>
                 </div>
                 {result.agentCardUri ? (
                   <a href={ipfsHttpUrl(result.agentCardUri)} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 font-mono text-xs text-[#22C55E] hover:underline">
+                    className="inline-flex items-center gap-1 font-mono text-xs text-accent hover:underline">
                     <ExternalLink size={12} /> {result.agentCardUri}
                   </a>
                 ) : (
-                  <p className="font-mono text-xs text-slate-500">No IPFS card URI (PINATA_JWT not configured).</p>
+                  <p className="font-mono text-xs text-fg-faint">No IPFS card URI (PINATA_JWT not configured).</p>
                 )}
                 <div className="flex justify-end">
-                  <button onClick={onClose} className="rounded bg-[#22C55E] px-3 py-1.5 font-sans text-sm font-medium text-[#0F172A]">Done</button>
+                  <button onClick={onClose} className="btn-primary px-3 py-1.5">Done</button>
                 </div>
               </div>
             ) : (
             <>
-            <h2 className="mb-1 font-sans text-lg font-semibold text-[#F8FAFC]">New Agent</h2>
-            <p className="mb-4 font-sans text-xs text-slate-400">These fields are written into the ERC-8004 agent card pinned to IPFS.</p>
+            <h2 className="mb-1 font-display text-lg font-semibold text-fg">New Agent</h2>
+            <p className="mb-4 font-sans text-xs text-fg-muted">These fields are written into the ERC-8004 agent card pinned to IPFS.</p>
             <div className="space-y-3">
               <div><label className={label}>Name *</label><input className={field} value={name} onChange={(e) => setName(e.target.value)} /></div>
               <div><label className={label}>Description</label><textarea className={`${field} h-16`} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
@@ -65,10 +65,9 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
               </div>
               <div><label className={label}>Contact</label><input className={field} placeholder="mailto:you@example.com" value={contact} onChange={(e) => setContact(e.target.value)} /></div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={onClose} className="rounded px-3 py-1.5 font-sans text-sm text-slate-300 hover:bg-[#272F42]">Cancel</button>
-              <button disabled={!name || creating} onClick={submit}
-                className="rounded bg-[#22C55E] px-3 py-1.5 font-sans text-sm font-medium text-[#0F172A] disabled:opacity-40">
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={onClose} className="btn-ghost border-transparent bg-transparent">Cancel</button>
+              <button disabled={!name || creating} onClick={submit} className="btn-primary px-3 py-1.5">
                 {creating ? "Registering…" : "Create + Register 8004"}
               </button>
             </div>
