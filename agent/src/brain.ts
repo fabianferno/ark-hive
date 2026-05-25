@@ -6,7 +6,7 @@ const config = loadConfig();
 const client = new OpenAI({ apiKey: config.openaiApiKey });
 
 export interface ChatTurn { role: "user" | "assistant"; content: string; }
-export interface BrainInput { message: string; history: ChatTurn[]; knowledge: string[]; }
+export interface BrainInput { message: string; history: ChatTurn[]; knowledge: string[]; persona?: string; }
 
 const SYSTEM = `You are an ERC-8004 registered AI agent with persistent, queryable memory stored on Arkiv.
 Use the provided KNOWLEDGE (retrieved from your past sessions) when relevant.
@@ -17,8 +17,9 @@ export async function respond(input: BrainInput): Promise<string> {
     ? `KNOWLEDGE:\n${input.knowledge.map((k, i) => `${i + 1}. ${k}`).join("\n")}`
     : "KNOWLEDGE: (none)";
 
+  const system = input.persona?.trim() ? input.persona.trim() : SYSTEM;
   const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: `${SYSTEM}\n\n${knowledgeBlock}` },
+    { role: "system", content: `${system}\n\n${knowledgeBlock}` },
     ...input.history.map((t): ChatCompletionMessageParam => ({ role: t.role, content: t.content })),
     { role: "user", content: input.message },
   ];

@@ -5,9 +5,13 @@ import { ExternalLink, Square } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { ChatView } from "@/components/chat/ChatView";
 import {
-  useAgent, useSessions, useStartSession, useMessages, useSendMessage, useCloseSession,
+  useAgent, useSessions, useStartSession, useMessages, useSendMessage, useCloseSession, useCtx,
 } from "@/lib/hooks/useAgents";
 import { chainLabel, ipfsHttpUrl, type CloseSessionResult } from "@/lib/agentClient";
+import { EnsBadge } from "@/components/ens/EnsBadge";
+import { X402PayDialog } from "@/components/agents/X402PayDialog";
+import { selectRequirement, buildXPayment } from "@/lib/x402/pay";
+import type { PaymentRequirement } from "@/lib/x402/config";
 
 export default function WorkspacePage() {
   const agentId = String(useParams().agentId);
@@ -19,7 +23,26 @@ export default function WorkspacePage() {
   const messages = useMessages(sessionKey);
   const send = useSendMessage(sessionKey);
   const close = useCloseSession(agentId);
+  const { ctx } = useCtx();
   const a = agent.data;
+
+  // x402: when an endpoint returns 402, surface the pay dialog and resolve to a
+  // signed X-PAYMENT (or null to decline → local persona fallback).
+  const [payReq, setPayReq] = useState<PaymentRequirement | null>(null);
+  const [resolver, setResolver] = useState<{ fn: (v: string | null) => void } | null>(null);
+  const onPaymentRequired = (accepts: unknown[]) =>
+    new Promise<string | null>((resolve) => {
+      const req = selectRequirement(accepts as PaymentRequirement[]);
+      if (!req) return resolve(null);
+      setPayReq(req);
+      setResolver({ fn: resolve });
+    });
+  const handlePay = async () => {
+    if (!payReq || !ctx) { resolver?.fn(null); setPayReq(null); setResolver(null); return; }
+    try { resolver?.fn(await buildXPayment(ctx, payReq)); } catch { resolver?.fn(null); }
+    setPayReq(null); setResolver(null);
+  };
+  const handleDecline = () => { resolver?.fn(null); setPayReq(null); setResolver(null); };
 
   return (
     <AppShell>
@@ -27,6 +50,7 @@ export default function WorkspacePage() {
         <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-4 py-3">
           <span className="font-display text-sm font-semibold text-fg">{a?.name || "Agent"}</span>
           <span className="font-mono text-xs text-fg-muted">8004 agentId {agentId}</span>
+          {a?.ensName && <EnsBadge name={a.ensName} />}
           {a && <span className="font-mono text-[11px] text-fg-faint">{chainLabel(a.registryChainId)}</span>}
           {a?.status && (
             <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-accent">
@@ -70,13 +94,14 @@ export default function WorkspacePage() {
             {closed ? (
               <SessionDigestPanel result={closed} onDismiss={() => setClosed(null)} />
             ) : sessionKey ? (
-              <ChatView messages={messages.data ?? []} sending={send.isPending} onSend={(t) => send.mutate(t)} />
+              <ChatView messages={messages.data ?? []} sending={send.isPending} onSend={(t) => send.mutate({ text: t, onPaymentRequired })} />
             ) : (
               <div className="p-6 font-sans text-fg-muted">Start or pick a session to chat.</div>
             )}
           </div>
         </div>
       </div>
+      <X402PayDialog req={payReq} onPay={handlePay} onDecline={handleDecline} />
     </AppShell>
   );
 }

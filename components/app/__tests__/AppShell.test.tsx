@@ -7,6 +7,8 @@ const wallet = vi.fn(() => ({ ready: true, authenticated: true, login: vi.fn(), 
 vi.mock("@/lib/wallet/useUserWallet", () => ({ useUserWallet: () => wallet() }));
 // ConnectBar uses the same hook; render it harmlessly.
 vi.mock("@/components/app/ConnectBar", () => ({ ConnectBar: () => null }));
+// EnsClaimModal uses React Query; stub it out in unit tests.
+vi.mock("@/components/ens/EnsClaimModal", () => ({ EnsClaimModal: () => null }));
 
 beforeEach(() => wallet.mockReturnValue({ ready: true, authenticated: true, login: vi.fn(), logout: vi.fn(), address: "0xabc" }));
 
@@ -17,6 +19,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /knowledge/i })).toHaveAttribute("href", "/knowledge");
     expect(screen.getByRole("link", { name: /memory/i })).toHaveAttribute("href", "/memory");
     expect(screen.getByRole("link", { name: /visualizer/i })).toHaveAttribute("href", "/visualizer");
+    expect(screen.getByRole("link", { name: /marketplace/i })).toHaveAttribute("href", "/marketplace");
     expect(screen.getByText("content here")).toBeInTheDocument();
   });
 

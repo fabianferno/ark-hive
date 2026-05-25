@@ -3,8 +3,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { ipfsHttpUrl, type CreateAgentResult } from "@/lib/agentClient";
+import { useMyEns } from "@/lib/hooks/useEns";
+import { agentEns, fallbackUserLabel } from "@/lib/ens/labels";
+import { EnsBadge } from "@/components/ens/EnsBadge";
+import { useUserWallet } from "@/lib/wallet/useUserWallet";
 
-export interface NewAgentInput { name: string; description: string; domain: string; capabilities: string[]; version: string; image: string; contact: string; }
+export interface NewAgentInput { name: string; description: string; domain: string; capabilities: string[]; version: string; image: string; contact: string; endpoint: string; }
 
 export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
   open: boolean; onClose: () => void; onCreate: (input: NewAgentInput) => void; creating: boolean; result?: CreateAgentResult | null;
@@ -16,12 +20,15 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
   const [version, setVersion] = useState("1.0.0");
   const [image, setImage] = useState("");
   const [contact, setContact] = useState("");
+  const [endpoint, setEndpoint] = useState("");
+  const myEns = useMyEns();
+  const { address } = useUserWallet();
   const field = "input";
   const label = "mb-1 block font-sans text-xs text-fg-muted";
   const submit = () => onCreate({
     name, description, domain,
     capabilities: capabilities.split(",").map((s) => s.trim()).filter(Boolean),
-    version, image, contact,
+    version, image, contact, endpoint,
   });
   return (
     <AnimatePresence>
@@ -46,6 +53,15 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
                 ) : (
                   <p className="font-mono text-xs text-fg-faint">No IPFS card URI (PINATA_JWT not configured).</p>
                 )}
+                {(() => {
+                  const userLabel = myEns.data?.label || (address ? fallbackUserLabel(address) : "");
+                  return userLabel ? (
+                    <div>
+                      <p className="mb-1 font-sans text-xs text-fg-muted">ENS name</p>
+                      <EnsBadge name={agentEns(name, userLabel, result.agentId)} />
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex justify-end">
                   <button onClick={onClose} className="btn-primary px-3 py-1.5">Done</button>
                 </div>
@@ -64,6 +80,7 @@ export function NewAgentDialog({ open, onClose, onCreate, creating, result }: {
                 <div className="flex-1"><label className={label}>Image URL</label><input className={field} value={image} onChange={(e) => setImage(e.target.value)} /></div>
               </div>
               <div><label className={label}>Contact</label><input className={field} placeholder="mailto:you@example.com" value={contact} onChange={(e) => setContact(e.target.value)} /></div>
+              <div><label className={label}>Endpoint URL</label><input className={field} placeholder="https://my-agent.example.com/chat" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} /></div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={onClose} className="btn-ghost border-transparent bg-transparent">Cancel</button>

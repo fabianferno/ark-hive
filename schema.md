@@ -27,9 +27,13 @@ Registration mirror: binds the on-chain 8004 identity to Arkiv. The full ERC-800
 | `status` | str | eq | `active` \| `idle` |
 | `createdAt` | **num** | range | epoch ms |
 | `agentCardUri` | str | eq | `ipfs://…` / gateway URL of the pinned card |
+| `ensName` / `ensLabel` / `ensUserLabel` | str | eq | optional 4-level ENS (`<agent>-<id>.<user>.ark-hive.eth`), Arkiv-resolved |
+| `origin` | str | eq | `created` (minted here) \| `marketplace` (adopted external 8004 agent) |
+| `endpoint` | str | eq | optional agent chat endpoint URL (mirrors `card.endpoints[0].url`); used for endpoint-call + x402 |
 
-- **Payload:** `{ name, description, agentId, agentCardUri, card }` (`card` = the full ERC-8004 agent card JSON).
+- **Payload:** `{ name, description, agentId, agentCardUri, card, endpoint?, origin?, ensName? }` (`card` = the full ERC-8004 agent card JSON).
 - **expiresIn:** `fromDays(365)`.
+- **Adopted agents** (marketplace): same `agentCard` shape with `origin: "marketplace"` and `agentCardUri` pointing at the external agent's on-chain `tokenURI`. No new mint, no NameStone write — discoverable in the user's Agents list and chat-able (endpoint → x402 pay → persona fallback).
 
 ## Session
 Run-scope root for a conversation.

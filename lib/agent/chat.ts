@@ -9,6 +9,7 @@ import { buildMemoryConditions } from "@/lib/arkiv-client/search";
 import { get as ctxGet, set as ctxSet } from "@/lib/arkiv-client/contextbus";
 import { computeCommitHash } from "@/lib/arkiv-client/hashchain";
 import { retrieve, indexSession, type ChatTurn } from "@/lib/arkiv-client/rag";
+import { listGrantsForMe, readSharedSummary } from "@/lib/arkiv-client/access";
 import { aiReply } from "@/lib/arkiv-client/ai";
 import type { ClientCtx } from "@/lib/arkiv-client/ctx";
 import type { SendResult } from "@/lib/agentClient";
@@ -84,7 +85,68 @@ async function searchKnowledge(ctx: ClientCtx, agentId: string, term: string, li
     .map((h) => `[${h.scope}/${h.memKey}] ${h.value}`);
 }
 
-export async function chatTurn(ctx: ClientCtx, opts: { sessionKey: string; text: string }): Promise<SendResult> {
+// ─── endpoint interaction (real agent call → x402 pay → persona fallback) ──────
+
+interface AgentRuntime { endpoint?: string; card: { name?: string; description?: string; capabilities?: string[] } | null }
+
+/** UI callback: given x402 payment requirements, return a base64 X-PAYMENT or null to decline. */
+export type OnPaymentRequired = (accepts: unknown[]) => Promise<string | null>;
+
+function personaPrompt(card: NonNullable<AgentRuntime["card"]>): string {
+  const caps = card.capabilities?.length ? ` Capabilities: ${card.capabilities.join(", ")}.` : "";
+  return `You are "${card.name ?? "an agent"}". ${card.description ?? ""}.${caps} Stay in character.`;
+}
+
+async function postAgentCall(url: string, message: string, history: ChatTurn[], xPayment?: string): Promise<{ reply?: string; status?: number; accepts?: unknown[]; error?: string }> {
+  const r = await fetch("/api/agent-call", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url, message, history, xPayment }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  return r.json().catch(() => ({ error: `agent-call ${r.status}` }));
+}
+
+async function callAgentEndpoint(url: string, message: string, history: ChatTurn[], onPay?: OnPaymentRequired): Promise<string> {
+  let res = await postAgentCall(url, message, history);
+  if (res.status === 402) {
+    if (!onPay) throw new Error("payment required (no handler)");
+    const xPayment = await onPay(res.accepts ?? []);
+    if (!xPayment) throw new Error("payment declined");
+    res = await postAgentCall(url, message, history, xPayment);
+  }
+  if (typeof res.reply !== "string") throw new Error(res.error ?? "no reply");
+  return res.reply;
+}
+
+export async function produceReply(
+  agent: AgentRuntime, text: string, turns: ChatTurn[], knowledge: string[], onPay?: OnPaymentRequired,
+): Promise<string> {
+  if (agent.endpoint) {
+    try { return await callAgentEndpoint(agent.endpoint, text, turns, onPay); }
+    catch (e) { console.warn("endpoint call failed, persona fallback:", (e as Error).message); }
+  }
+  const persona = agent.card ? personaPrompt(agent.card) : undefined;
+  return aiReply({ message: text, history: turns, knowledge, persona });
+}
+
+/** @internal test seam */
+export const __produceReplyForTest = produceReply;
+
+async function loadAgentRuntime(ctx: ClientCtx, agentId: string): Promise<AgentRuntime> {
+  const rows = await repoQuery(ctx, [
+    { key: PROJECT_ATTRIBUTE.key, op: "eq", value: PROJECT_ATTRIBUTE.value },
+    { key: "entityType", op: "eq", value: "agentCard" },
+    { key: "agentId", op: "eq", value: agentId },
+  ], 1);
+  const e = rows[0];
+  if (!e) return { endpoint: undefined, card: null };
+  const p = (e.payload ?? {}) as { endpoint?: string; card?: (AgentRuntime["card"] & { endpoints?: { url?: string }[] }) | null };
+  const endpoint = String(e.attrs.endpoint ?? p.endpoint ?? p.card?.endpoints?.[0]?.url ?? "") || undefined;
+  return { endpoint, card: p.card ?? null };
+}
+
+export async function chatTurn(ctx: ClientCtx, opts: { sessionKey: string; text: string; onPaymentRequired?: OnPaymentRequired }): Promise<SendResult> {
   const { sessionKey, text } = opts;
   const repo = makeRepo(ctx);
   const session = await loadSession(ctx, sessionKey);
@@ -99,32 +161,49 @@ export async function chatTurn(ctx: ClientCtx, opts: { sessionKey: string; text:
   const past = await retrieve(ctx, text, { agentId, callerId });
   for (const s of past) knowledge.push(`[past-session] ${s}`);
 
-  const reply = await aiReply({ message: text, history: turns, knowledge });
+  // Shared knowledge: summaries another agent granted to THIS agent (access grants
+  // where I'm the grantee, scoped to this agentId). Decrypt + add to context.
+  // Expired grants are already gone from Arkiv (TTL), so this self-limits.
+  try {
+    const grants = (await listGrantsForMe(ctx)).filter((g) => g.granteeAgentId === agentId);
+    for (const g of grants) {
+      try {
+        const shared = await readSharedSummary(ctx, g);
+        if (shared) knowledge.push(`[shared] ${shared}`);
+      } catch (e) { console.warn("shared summary decrypt skipped:", (e as Error).message); }
+    }
+  } catch (e) { console.warn("incoming grants fetch skipped:", (e as Error).message); }
+
+  const agentRt = await loadAgentRuntime(ctx, agentId);
+  const reply = await produceReply(agentRt, text, turns, knowledge, opts.onPaymentRequired);
 
   const userSeq = lastSeq + 1;
   const assistantSeq = lastSeq + 2;
   const ts = Date.now();
+  // Critical path: persist the two messages so the chat renders the reply. Everything
+  // after (snapshot, memory, session-activity, rolling index) is telemetry/derived
+  // state and must NOT gate the reply — a slow/stuck write would otherwise hang the
+  // whole turn ("agent is thinking…" with no answer). Run those fire-and-forget.
   const user = await repo.createMessage({ sessionKey, agentId, role: "user", seq: userSeq, ts, content: text });
   const assistant = await repo.createMessage({ sessionKey, agentId, role: "assistant", seq: assistantSeq, ts: ts + 1, content: reply });
 
-  const commitSeq = (lastSnapshot?.seq ?? 0) + 1;
-  const statePayload = JSON.stringify({ sessionKey, lastSeq: assistantSeq, reply });
-  const commitHash = await computeCommitHash(lastSnapshot?.hash ?? null, statePayload);
-  const snap = await repo.createSnapshot({
-    sessionKey, agentId, commitSeq, commitHash, prevSnapshotKey: lastSnapshot?.key ?? "", state: { lastSeq: assistantSeq, reply },
-  });
-
-  await ctxSet(repo, { agentId, scope: "run", scopeKey: sessionKey, memKey: "lastReply", value: reply, version: commitSeq });
-  await repo.updateSessionActivity({ sessionKey, agentId, callerId, startedAt: session.startedAt, turnCount: assistantSeq + 1 });
-
-  // Rolling RAG cap: every N turns, re-index the session (fire-and-forget).
   const totalTurns = assistantSeq + 1;
-  if (RAG_ROLL_EVERY > 0 && totalTurns % RAG_ROLL_EVERY === 0) {
-    const summarySeq = Math.floor(totalTurns / RAG_ROLL_EVERY);
-    void indexSession(ctx, { agentId, callerId, sessionKey, summarySeq }).catch((e) =>
-      console.warn("rolling indexSession failed:", (e as Error).message),
-    );
-  }
+  void (async () => {
+    try {
+      const commitSeq = (lastSnapshot?.seq ?? 0) + 1;
+      const statePayload = JSON.stringify({ sessionKey, lastSeq: assistantSeq, reply });
+      const commitHash = await computeCommitHash(lastSnapshot?.hash ?? null, statePayload);
+      await repo.createSnapshot({
+        sessionKey, agentId, commitSeq, commitHash, prevSnapshotKey: lastSnapshot?.key ?? "", state: { lastSeq: assistantSeq, reply },
+      });
+      await ctxSet(repo, { agentId, scope: "run", scopeKey: sessionKey, memKey: "lastReply", value: reply, version: commitSeq });
+      await repo.updateSessionActivity({ sessionKey, agentId, callerId, startedAt: session.startedAt, turnCount: totalTurns });
+      // Rolling RAG cap: every N turns, re-index the session.
+      if (RAG_ROLL_EVERY > 0 && totalTurns % RAG_ROLL_EVERY === 0) {
+        await indexSession(ctx, { agentId, callerId, sessionKey, summarySeq: Math.floor(totalTurns / RAG_ROLL_EVERY) });
+      }
+    } catch (e) { console.warn("chat post-write (background) failed:", (e as Error).message); }
+  })();
 
-  return { reply, userKey: user.entityKey, assistantKey: assistant.entityKey, snapshotKey: snap.entityKey };
+  return { reply, userKey: user.entityKey, assistantKey: assistant.entityKey, snapshotKey: "" };
 }

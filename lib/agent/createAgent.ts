@@ -12,6 +12,7 @@ import type { ClientCtx } from "@/lib/arkiv-client/ctx";
 import { buildAgentCard } from "./agentcard";
 import { registerIdentityClient, REGISTRY_ADDRESS, REGISTRY_CHAIN_ID } from "./identity";
 import type { CreateAgentInput, CreateAgentResult } from "@/lib/agentClient";
+import { agentLabel, agentEns, fallbackUserLabel } from "@/lib/ens/labels";
 
 // The subset of useUserWallet() this flow needs for the Sepolia mint + chain switching.
 export interface CreateAgentWallets {
@@ -49,7 +50,7 @@ export async function createAgent(
     agentAddress: ctx.address,
     image: input.image || undefined,
     contact: input.contact || undefined,
-    endpoints: [{ name: "chat", url: `https://${domain}/chat` }],
+    endpoints: [{ name: "chat", url: input.endpoint || `https://${domain}/chat` }],
   });
 
   // 2. Pin to IPFS (server holds the Pinata key).
@@ -73,6 +74,15 @@ export async function createAgent(
   }
 
   // 4. Write the agentCard entity to Arkiv (signed by the user's Braga wallet).
+  // Every agent always gets a 4-level ENS; fall back to a derived label when the
+  // user hasn't claimed one.
+  const userLabel = input.userLabel || fallbackUserLabel(ctx.address);
+  const endpoint = input.endpoint || `https://${domain}/chat`;
+  const ensFields = {
+    ensLabel: agentLabel(input.name, agentId),
+    ensName: agentEns(input.name, userLabel, agentId),
+    ensUserLabel: userLabel,
+  };
   const written = await makeRepo(ctx).createAgentCard({
     agentId,
     registryChainId: REGISTRY_CHAIN_ID,
@@ -80,6 +90,9 @@ export async function createAgent(
     description: input.description ?? "",
     agentCardUri: uri,
     card,
+    origin: "created",
+    endpoint,
+    ...ensFields,
   });
 
   return { agentId, txHash, agentCardKey: written.entityKey, agentCardUri: uri };

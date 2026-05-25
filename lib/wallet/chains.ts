@@ -17,7 +17,19 @@ export const sepolia = defineChain({
   testnet: true,
 });
 
+export const baseSepolia = defineChain({
+  id: 84532,
+  name: "Base Sepolia",
+  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://sepolia.base.org"] } },
+  blockExplorers: { default: { name: "Basescan", url: "https://sepolia.basescan.org" } },
+  testnet: true,
+});
+
 export { braga };
 
 export const BRAGA_ID = 60138453102;
 export const SEPOLIA_ID = 11155111;
+export const BASE_SEPOLIA_ID = 84532;
+// Circle USDC on Base Sepolia (6 decimals) — the x402 default test asset.
+export const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;

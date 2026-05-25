@@ -7,12 +7,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserWallet } from "@/lib/wallet/useUserWallet";
 import type { ClientCtx } from "@/lib/arkiv-client/ctx";
 import type { CreateAgentWallets } from "@/lib/agent/createAgent";
-import { listAgents, getAgent } from "@/lib/agent/agents";
+import { listAgents, listAllAgents, getAgent } from "@/lib/agent/agents";
 import { createAgent } from "@/lib/agent/createAgent";
+import { adoptAgent } from "@/lib/agent/marketplace";
+import type { MarketplaceAgent } from "@/lib/agent/registry";
 import { listSessions, createSession, listMessages, closeSession } from "@/lib/agent/sessions";
-import { chatTurn } from "@/lib/agent/chat";
+import { chatTurn, type OnPaymentRequired } from "@/lib/agent/chat";
 import { listSummaries, topicFetch, searchMemory } from "@/lib/agent/knowledge";
 import type { CreateAgentInput } from "@/lib/agentClient";
+import { useMyEns } from "@/lib/hooks/useEns";
 
 /**
  * Build the per-user ClientCtx (Arkiv wallet + public client + address) from the
@@ -26,7 +29,7 @@ export function useCtx(): {
   const w = useUserWallet();
   const ctx: ClientCtx | null =
     w.arkivWallet && w.address
-      ? { wallet: w.arkivWallet, publicClient: w.publicArkiv, address: w.address, signMessage: w.signMessage }
+      ? { wallet: w.arkivWallet, publicClient: w.publicArkiv, address: w.address, signMessage: w.signMessage, signTypedData: w.signTypedData }
       : null;
   const mintWallets: CreateAgentWallets = {
     sendTransaction: w.sendTransaction,
@@ -43,6 +46,12 @@ export function useAgentsList() {
   return useQuery({ queryKey: ["agents"], enabled: !!ctx, queryFn: () => listAgents(ctx!) });
 }
 
+/** All agents across every user — for cross-user share discovery. */
+export function useAllAgentsList() {
+  const { ctx } = useCtx();
+  return useQuery({ queryKey: ["allAgents"], enabled: !!ctx, queryFn: () => listAllAgents(ctx!), staleTime: 30_000 });
+}
+
 export function useAgent(agentId: string) {
   const { ctx } = useCtx();
   return useQuery({ queryKey: ["agent", agentId], enabled: !!ctx && !!agentId, queryFn: () => getAgent(ctx!, agentId) });
@@ -51,9 +60,31 @@ export function useAgent(agentId: string) {
 export function useCreateAgent() {
   const { ctx, mintWallets } = useCtx();
   const qc = useQueryClient();
+  const myEns = useMyEns();
+  const userLabel = myEns.data?.label;
   return useMutation({
-    mutationFn: (input: CreateAgentInput) => createAgent(ctx!, mintWallets, input),
+    mutationFn: (input: CreateAgentInput) => {
+      if (!ctx) throw new Error("Wallet not ready");
+      return createAgent(ctx, mintWallets, { ...input, userLabel });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+/** Adopt a marketplace (external 8004) agent into the user's namespace. */
+export function useAdoptAgent() {
+  const { ctx } = useCtx();
+  const qc = useQueryClient();
+  const myEns = useMyEns();
+  return useMutation({
+    mutationFn: (mkt: MarketplaceAgent) => {
+      if (!ctx) throw new Error("Wallet not ready");
+      return adoptAgent(ctx, mkt, myEns.data?.label ?? "");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["allAgents"] });
+    },
   });
 }
 
@@ -80,7 +111,8 @@ export function useSendMessage(sessionKey: string) {
   const { ctx } = useCtx();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) => chatTurn(ctx!, { sessionKey, text }),
+    mutationFn: (vars: { text: string; onPaymentRequired?: OnPaymentRequired }) =>
+      chatTurn(ctx!, { sessionKey, text: vars.text, onPaymentRequired: vars.onPaymentRequired }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["messages", sessionKey] }),
   });
 }

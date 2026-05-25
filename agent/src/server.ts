@@ -22,8 +22,8 @@ app.get("/health", (c) => c.json({ ok: true }));
 
 app.post("/ai/reply", async (c) => {
   try {
-    const { message, history, knowledge } = await c.req.json<{ message: string; history?: ChatTurn[]; knowledge?: string[] }>();
-    const reply = await respond({ message: String(message), history: history ?? [], knowledge: knowledge ?? [] });
+    const { message, history, knowledge, persona } = await c.req.json<{ message: string; history?: ChatTurn[]; knowledge?: string[]; persona?: string }>();
+    const reply = await respond({ message: String(message), history: history ?? [], knowledge: knowledge ?? [], persona });
     return c.json({ reply });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);

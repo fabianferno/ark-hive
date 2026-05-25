@@ -36,6 +36,14 @@ export function useUserWallet() {
     return (await provider.request({ method: "personal_sign", params: [toHex(message), address] })) as string;
   }, [wallet, address]);
 
+  // Sign EIP-712 typed data (x402 EIP-3009 payment authorization). Off-chain
+  // signature → no chain switch; the chainId lives in the typed-data domain.
+  const signTypedData = useCallback(async (typedData: unknown): Promise<string> => {
+    if (!wallet || !address) throw new Error("no wallet");
+    const provider = await wallet.getEthereumProvider();
+    return (await provider.request({ method: "eth_signTypedData_v4", params: [address, JSON.stringify(typedData)] })) as string;
+  }, [wallet, address]);
+
   // Build the Arkiv (Braga) wallet client ONLY when the address changes. Depending
   // on the Privy `wallet` object (fresh ref every render) re-runs this each render
   // and setState a new client → infinite render loop (froze the page).
@@ -67,6 +75,7 @@ export function useUserWallet() {
     sendTransaction,
     switchChain,
     signMessage,
+    signTypedData,
     BRAGA_ID,
     SEPOLIA_ID,
   };

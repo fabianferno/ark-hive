@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo:seed": "tsx scripts/demo-seed.ts"
   },
   "repository": {
     "type": "git",
@@ -39,6 +40,7 @@
     "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "server-only": "^0.0.1",
     "three": "^0.184.0",
     "viem": "^2.50.4",
     "zustand": "^4.5.7"
@@ -54,9 +56,11 @@
     "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.0",
+    "dotenv": "^17.4.2",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^7.3.3",
     "vitest": "^2.1.9"

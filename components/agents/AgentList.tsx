@@ -4,6 +4,7 @@ import { Plus, ExternalLink, Bot } from "lucide-react";
 import { chainLabel, ipfsHttpUrl, type UiAgent } from "@/lib/agentClient";
 import { GlowCard } from "@/components/ui/GlowCard";
 import { IconChip } from "@/components/ui/IconChip";
+import { EnsBadge } from "@/components/ens/EnsBadge";
 
 export function AgentList({ agents, onOpen, onNew, loading }: {
   agents: UiAgent[]; onOpen: (agentId: string) => void; onNew: () => void; loading: boolean;
@@ -39,6 +40,7 @@ export function AgentList({ agents, onOpen, onNew, loading }: {
               </div>
               <span className="font-display text-lg font-semibold text-fg">{a.name || "Unnamed"}</span>
               <div className="mt-1 font-mono text-xs text-fg-muted">8004 agentId {a.agentId}</div>
+              {a.ensName && <div className="mt-1"><EnsBadge name={a.ensName} /></div>}
               <div className="mt-1 font-mono text-[11px] text-fg-faint">{chainLabel(a.registryChainId)}</div>
               <div className="mt-2 line-clamp-2 font-sans text-sm text-fg-muted">{a.description}</div>
             </button>

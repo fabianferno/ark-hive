@@ -15,7 +15,7 @@ export const ENTITY = {
   accessGrant: "accessGrant",
 } as const;
 
-export interface AgentCardFields { agentId: string; registryChainId: number; status: string; createdAt: number; agentCardUri: string; }
+export interface AgentCardFields { agentId: string; registryChainId: number; status: string; createdAt: number; agentCardUri: string; origin?: string; endpoint?: string; }
 export interface SessionFields { agentId: string; callerId: string; sessionStatus: string; startedAt: number; lastActivityAt: number; turnCount: number; }
 export interface MessageFields { sessionKey: string; agentId: string; role: "user" | "assistant"; seq: number; ts: number; }
 export interface SnapshotFields { sessionKey: string; agentId: string; commitSeq: number; commitHash: string; prevSnapshotKey: string; payloadSize: number; createdAt: number; }
@@ -33,6 +33,8 @@ export const agentCardAttrs = (p: ProjectAttr, f: AgentCardFields): Attr[] => [
   { key: "status", value: f.status },
   { key: "createdAt", value: f.createdAt },
   { key: "agentCardUri", value: f.agentCardUri },
+  ...(f.origin ? [{ key: "origin", value: f.origin }] : []),
+  ...(f.endpoint ? [{ key: "endpoint", value: f.endpoint }] : []),
 ];
 
 export const sessionAttrs = (p: ProjectAttr, f: SessionFields): Attr[] => [

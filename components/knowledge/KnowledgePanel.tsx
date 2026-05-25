@@ -4,7 +4,7 @@ import { Search, Lock, Share2, Clock } from "lucide-react";
 import { useState } from "react";
 import type { UiSummary } from "@/lib/agentClient";
 import { GlowCard } from "@/components/ui/GlowCard";
-import { useAgentsList } from "@/lib/hooks/useAgents";
+import { AgentCombobox } from "@/components/agents/AgentCombobox";
 import {
   useEncryptAndShare,
   useSharedWithMe,
@@ -31,10 +31,7 @@ function ShareSummary({ agentId, summary }: { agentId: string; summary: UiSummar
   const [granteeAgentId, setGranteeAgentId] = useState("");
   const [expiresInSec, setExpiresInSec] = useState(86400);
 
-  const agents = useAgentsList();
   const share = useEncryptAndShare(agentId);
-
-  const otherAgents = (agents.data ?? []).filter((a) => a.agentId !== agentId);
 
   function handleShare() {
     if (!granteeAgentId) return;
@@ -70,18 +67,11 @@ function ShareSummary({ agentId, summary }: { agentId: string; summary: UiSummar
         </button>
       ) : (
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <select
+          <AgentCombobox
             value={granteeAgentId}
-            onChange={(e) => setGranteeAgentId(e.target.value)}
-            className="input w-auto flex-1 py-1.5 text-xs"
-          >
-            <option value="">Select agent…</option>
-            {otherAgents.map((a) => (
-              <option key={a.key} value={a.agentId}>
-                {a.name || "Unnamed"} · {a.agentId}
-              </option>
-            ))}
-          </select>
+            onChange={setGranteeAgentId}
+            excludeAgentId={agentId}
+          />
 
           <select
             value={expiresInSec}

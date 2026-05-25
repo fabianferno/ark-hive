@@ -28,6 +28,14 @@ describe("entity attribute builders", () => {
     expect(a).toContainEqual({ key: "memKey", value: "goal" });
     expect(a).toContainEqual({ key: "version", value: 1 });
   });
+  it("agentCard includes origin + endpoint when provided, omits when absent", () => {
+    const withMeta = agentCardAttrs(project, { agentId: "7", registryChainId: 84532, status: "active", createdAt: 1, agentCardUri: "ipfs://x", origin: "marketplace", endpoint: "https://a.dev/chat" });
+    expect(withMeta).toContainEqual({ key: "origin", value: "marketplace" });
+    expect(withMeta).toContainEqual({ key: "endpoint", value: "https://a.dev/chat" });
+    const bare = agentCardAttrs(project, { agentId: "7", registryChainId: 84532, status: "active", createdAt: 1, agentCardUri: "" });
+    expect(bare.find((x) => x.key === "origin")).toBeUndefined();
+    expect(bare.find((x) => x.key === "endpoint")).toBeUndefined();
+  });
 });
 
 describe("rag entity builders", () => {

@@ -2,11 +2,16 @@
 "use client";
 import { useUserWallet } from "@/lib/wallet/useUserWallet";
 import { useWalletBalance } from "@/lib/hooks/useWalletBalance";
+import { useMyEns } from "@/lib/hooks/useEns";
 import { Wallet, Copy, Droplet } from "lucide-react";
 
 export function ConnectBar() {
   const { ready, authenticated, login, logout, address } = useUserWallet();
   const { formatted: balance, isLoading: balanceLoading } = useWalletBalance();
+  const myEns = useMyEns();
+  const ensName = myEns.data?.ensName ?? null;
+  const identity = ensName ?? (address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "—");
+  const copyValue = ensName ?? address ?? "";
   if (!ready) return <span className="font-mono text-xs text-fg-muted">…</span>;
   if (!authenticated)
     return (
@@ -19,12 +24,15 @@ export function ConnectBar() {
       <span className="rounded-lg border border-border bg-white/[0.03] px-2 py-1 text-accent">
         {balanceLoading ? "…" : balance ?? "—"}
       </span>
-      <span className="rounded-lg border border-border bg-white/[0.03] px-2 py-1">
-        {address?.slice(0, 6)}…{address?.slice(-4)}
+      <span
+        title={address ?? undefined}
+        className={`rounded-lg border border-border bg-white/[0.03] px-2 py-1 ${ensName ? "text-accent" : ""}`}
+      >
+        {identity}
       </span>
       <button
-        title="Copy"
-        onClick={() => address && navigator.clipboard.writeText(address)}
+        title={`Copy ${ensName ? "ENS name" : "address"}`}
+        onClick={() => copyValue && navigator.clipboard.writeText(copyValue)}
         className="text-fg-muted transition-colors hover:text-fg"
       >
         <Copy size={14} />

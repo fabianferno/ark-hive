@@ -1,15 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Search, Network, BookOpen, Wallet } from "lucide-react";
+import { Bot, Search, Network, BookOpen, Wallet, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { ConnectBar } from "@/components/app/ConnectBar";
 import { AppBrand } from "@/components/app/AppBrand";
 import { GlowCard } from "@/components/ui/GlowCard";
 import { useUserWallet } from "@/lib/wallet/useUserWallet";
+import { EnsClaimModal } from "@/components/ens/EnsClaimModal";
 
 const NAV = [
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/marketplace", label: "Marketplace", icon: Store },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen },
   { href: "/memory", label: "Memory", icon: Search },
   { href: "/visualizer", label: "Visualizer", icon: Network },
@@ -75,6 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
+      <EnsClaimModal />
     </div>
   );
 }
