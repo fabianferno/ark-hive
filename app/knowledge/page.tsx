@@ -29,6 +29,7 @@ export default function KnowledgePage() {
         </select>
       </div>
       <KnowledgePanel
+        agentId={agentId}
         summaries={summaries.data ?? []}
         loading={summaries.isLoading && !!agentId}
         topicResults={topicResults}
