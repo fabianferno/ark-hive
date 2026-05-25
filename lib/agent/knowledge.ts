@@ -23,7 +23,7 @@ const toSummary = (e: { key: string; payload: unknown; attrs: Record<string, str
 
 export async function listSummaries(ctx: ClientCtx, agentId: string): Promise<UiSummary[]> {
   const rows = await summariesForCaller(ctx, agentId, ctx.address, 200);
-  return rows.map(toSummary);
+  return rows.filter((r) => String(r.attrs.enc ?? "") !== "v1").map(toSummary);
 }
 
 export async function topicFetch(ctx: ClientCtx, agentId: string, topic: string): Promise<string[]> {

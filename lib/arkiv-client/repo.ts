@@ -59,6 +59,16 @@ export async function queryGlobal(ctx: ClientCtx, conditions: Condition[], limit
   }));
 }
 
+/** Fetch a single entity by key (unscoped), decoded like query rows. */
+export async function getEntity(ctx: ClientCtx, key: string): Promise<DecodedEntity> {
+  const e: any = await ctx.publicClient.getEntity(key as `0x${string}`);
+  return {
+    key: e.key, payload: safeJson(e), attrs: attrsToRecord(e),
+    owner: e.owner ? String(e.owner) : undefined,
+    creator: e.creator ? String(e.creator) : undefined,
+  };
+}
+
 export const Expiry = {
   agentCard: () => ExpirationTime.fromDays(365),
   session: () => ExpirationTime.fromHours(12),
@@ -123,6 +133,8 @@ export interface ClientRepo {
   createPubKey(f: { owner: string; x25519Pub: string; scheme: string }): Promise<{ entityKey: string; txHash: string }>;
   createEncryptedSummary(f: { agentId: string; callerId: string; sessionKey: string; summarySeq: number; ciphertext: string; nonce: string }): Promise<{ entityKey: string; txHash: string }>;
   createAccessGrant(f: AccessGrantFields & { wrappedKey: string; ephemeralPub: string; nonce: string; expiresInSec: number }): Promise<{ entityKey: string; txHash: string }>;
+  updateAccessGrant(entityKey: string, f: AccessGrantFields & { wrappedKey: string; ephemeralPub: string; nonce: string; expiresInSec: number }): Promise<void>;
+  getEntity(key: string): Promise<DecodedEntity>;
   deleteEntity(entityKey: string): Promise<void>;
   extendEntity(entityKey: string, expiresIn: number): Promise<void>;
   queryGlobal(conditions: Condition[], limit?: number): Promise<DecodedEntity[]>;
@@ -216,6 +228,20 @@ export function makeRepo(ctx: ClientCtx): ClientRepo {
           expiresAt: f.expiresAt, createdAt: Date.now(),
         }), f.expiresInSec);
     },
+    async updateAccessGrant(entityKey, f) {
+      await serializeWrite(() => ctx.wallet.updateEntity({
+        entityKey: entityKey as `0x${string}`,
+        payload: jsonToPayload({ wrappedKey: f.wrappedKey, ephemeralPub: f.ephemeralPub, nonce: f.nonce }),
+        contentType: "application/json",
+        attributes: accessGrantAttrs(PROJECT_ATTRIBUTE, {
+          agentId: f.agentId, resourceKey: f.resourceKey, resourceType: f.resourceType,
+          granteeAgentId: f.granteeAgentId, granteeAddress: f.granteeAddress,
+          expiresAt: f.expiresAt, createdAt: f.createdAt,
+        }),
+        expiresIn: f.expiresInSec,
+      }));
+    },
+    getEntity(key) { return getEntity(ctx, key); },
     async deleteEntity(entityKey) {
       await serializeWrite(() => ctx.wallet.deleteEntity({ entityKey: entityKey as `0x${string}` }));
     },

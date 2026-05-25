@@ -20,9 +20,12 @@ export interface OutgoingGrant { grantKey: string; resourceKey: string; granteeA
 /** Ensure this wallet has a published X25519 pubkey entity; returns my keypair. */
 export async function publishPubKey(ctx: ClientCtx) {
   const kp = await deriveKeyPair(ctx);
-  const existing = await resolvePubKey(ctx, ctx.address);
-  if (!existing) {
-    await makeRepo(ctx).createPubKey({ owner: lc(ctx.address), x25519Pub: kp.publicKeyB64, scheme: SCHEME });
+  const rows = await queryGlobal(ctx, [eqp(), eqv("entityType", "pubkey"), eqv("owner", lc(ctx.address))], 1);
+  const repo = makeRepo(ctx);
+  if (rows.length === 0) {
+    await repo.createPubKey({ owner: lc(ctx.address), x25519Pub: kp.publicKeyB64, scheme: SCHEME });
+  } else {
+    try { await repo.extendEntity(rows[0].key, 60 * 60 * 24 * 365); } catch { /* best-effort TTL refresh */ }
   }
   return kp;
 }
@@ -141,7 +144,7 @@ export async function readSharedSummary(ctx: ClientCtx, grant: IncomingGrant): P
   const me = await deriveKeyPair(ctx);
   const dek = unwrapKey(grant.wrapped, me.secretKey);
   const entity = await ctx.publicClient.getEntity(grant.resourceKey as `0x${string}`);
-  const payload = (typeof entity.toJson === "function" ? entity.toJson() : entity.payload) as { ciphertext: string; nonce: string };
+  const payload = entity.toJson() as { ciphertext: string; nonce: string };
   const out = decryptPayload({ ciphertext: payload.ciphertext, nonce: payload.nonce }, dek) as { summary: string };
   return out.summary;
 }
@@ -150,5 +153,14 @@ export async function revokeGrant(ctx: ClientCtx, grantKey: string): Promise<voi
   await makeRepo(ctx).deleteEntity(grantKey);
 }
 export async function extendGrant(ctx: ClientCtx, grantKey: string, expiresInSec: number): Promise<void> {
-  await makeRepo(ctx).extendEntity(grantKey, expiresInSec);
+  const repo = makeRepo(ctx);
+  const e = await repo.getEntity(grantKey);
+  const a = e.attrs;
+  const w = toWrapped(e.payload);
+  await repo.updateAccessGrant(grantKey, {
+    agentId: String(a.agentId ?? ""), resourceKey: String(a.resourceKey ?? ""), resourceType: String(a.resourceType ?? "summary"),
+    granteeAgentId: String(a.granteeAgentId ?? ""), granteeAddress: lc(String(a.granteeAddress ?? "")),
+    expiresAt: Date.now() + expiresInSec * 1000, createdAt: Number(a.createdAt ?? Date.now()),
+    wrappedKey: w.wrappedKey, ephemeralPub: w.ephemeralPub, nonce: w.nonce, expiresInSec,
+  });
 }
