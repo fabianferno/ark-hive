@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { createWalletClient as createArkivWalletClient, createPublicClient as createArkivPublicClient, custom as arkivCustom, http as arkivHttp } from "@arkiv-network/sdk";
-import { createPublicClient as createViemPublicClient, http as viemHttp } from "viem";
+import { createPublicClient as createViemPublicClient, http as viemHttp, toHex } from "viem";
 import { braga, sepolia, BRAGA_ID, SEPOLIA_ID } from "@/lib/wallet/chains";
 
 export function useUserWallet() {
@@ -27,6 +27,14 @@ export function useUserWallet() {
     if (!wallet) throw new Error("no wallet");
     await wallet.switchChain(id);
   }, [wallet]);
+
+  // Sign a fixed message with the embedded wallet (personal_sign) to seed the
+  // X25519 encryption key. Auto-signed (embeddedWallets.showWalletUIs=false).
+  const signMessage = useCallback(async (message: string): Promise<string> => {
+    if (!wallet || !address) throw new Error("no wallet");
+    const provider = await wallet.getEthereumProvider();
+    return (await provider.request({ method: "personal_sign", params: [toHex(message), address] })) as string;
+  }, [wallet, address]);
 
   // Build the Arkiv (Braga) wallet client ONLY when the address changes. Depending
   // on the Privy `wallet` object (fresh ref every render) re-runs this each render
@@ -58,6 +66,7 @@ export function useUserWallet() {
     publicSepolia,
     sendTransaction,
     switchChain,
+    signMessage,
     BRAGA_ID,
     SEPOLIA_ID,
   };

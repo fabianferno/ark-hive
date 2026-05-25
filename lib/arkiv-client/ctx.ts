@@ -6,4 +6,5 @@ export interface ClientCtx {
   wallet: any; // Arkiv walletClient (createWalletClient w/ Privy provider) — has createEntity/updateEntity
   publicClient: any; // Arkiv publicClient (createPublicClient) — has buildQuery/getEntity
   address: `0x${string}`;
+  signMessage?: (message: string) => Promise<string>; // Privy personal_sign — used to derive the X25519 encryption key
 }

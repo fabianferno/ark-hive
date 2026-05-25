@@ -26,7 +26,7 @@ export function useCtx(): {
   const w = useUserWallet();
   const ctx: ClientCtx | null =
     w.arkivWallet && w.address
-      ? { wallet: w.arkivWallet, publicClient: w.publicArkiv, address: w.address }
+      ? { wallet: w.arkivWallet, publicClient: w.publicArkiv, address: w.address, signMessage: w.signMessage }
       : null;
   const mintWallets: CreateAgentWallets = {
     sendTransaction: w.sendTransaction,
