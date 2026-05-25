@@ -11,6 +11,8 @@ export const ENTITY = {
   topic: "topic",
   summaryTopic: "summaryTopic",
   summaryLink: "summaryLink",
+  pubkey: "pubkey",
+  accessGrant: "accessGrant",
 } as const;
 
 export interface AgentCardFields { agentId: string; registryChainId: number; status: string; createdAt: number; agentCardUri: string; }
@@ -70,7 +72,7 @@ export const memoryAttrs = (p: ProjectAttr, f: MemoryFields): Attr[] => [
   { key: "createdAt", value: f.createdAt },
 ];
 
-export interface SummaryFields { agentId: string; callerId: string; sessionKey: string; summarySeq: number; createdAt: number; }
+export interface SummaryFields { agentId: string; callerId: string; sessionKey: string; summarySeq: number; createdAt: number; enc?: string; }
 export interface TopicFields { agentId: string; callerId: string; topicKey: string; createdAt: number; }
 export interface SummaryTopicFields { agentId: string; callerId: string; summaryKey: string; topicKey: string; sessionKey: string; createdAt: number; }
 export interface SummaryLinkFields { agentId: string; callerId: string; srcSummaryKey: string; dstSummaryKey: string; score: number; createdAt: number; }
@@ -81,6 +83,7 @@ export const summaryAttrs = (p: ProjectAttr, f: SummaryFields): Attr[] => [
   { key: "sessionKey", value: f.sessionKey },
   { key: "summarySeq", value: f.summarySeq },
   { key: "createdAt", value: f.createdAt },
+  ...(f.enc ? [{ key: "enc", value: f.enc } as Attr] : []),
 ];
 export const topicAttrs = (p: ProjectAttr, f: TopicFields): Attr[] => [
   ...base(p, ENTITY.topic, f.agentId),
@@ -102,5 +105,27 @@ export const summaryLinkAttrs = (p: ProjectAttr, f: SummaryLinkFields): Attr[] =
   { key: "srcSummaryKey", value: f.srcSummaryKey },
   { key: "dstSummaryKey", value: f.dstSummaryKey },
   { key: "score", value: f.score },
+  { key: "createdAt", value: f.createdAt },
+];
+
+export interface PubKeyFields { owner: string; createdAt: number; }
+export const pubkeyAttrs = (p: ProjectAttr, f: PubKeyFields): Attr[] => [
+  { key: p.key, value: p.value },
+  { key: "entityType", value: ENTITY.pubkey },
+  { key: "owner", value: f.owner },
+  { key: "createdAt", value: f.createdAt },
+];
+
+export interface AccessGrantFields {
+  agentId: string; resourceKey: string; resourceType: string;
+  granteeAgentId: string; granteeAddress: string; expiresAt: number; createdAt: number;
+}
+export const accessGrantAttrs = (p: ProjectAttr, f: AccessGrantFields): Attr[] => [
+  ...base(p, ENTITY.accessGrant, f.agentId),
+  { key: "resourceKey", value: f.resourceKey },
+  { key: "resourceType", value: f.resourceType },
+  { key: "granteeAgentId", value: f.granteeAgentId },
+  { key: "granteeAddress", value: f.granteeAddress },
+  { key: "expiresAt", value: f.expiresAt },
   { key: "createdAt", value: f.createdAt },
 ];

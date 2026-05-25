@@ -50,6 +50,7 @@ export const Expiry = {
   summary: () => ExpirationTime.fromDays(365),
   topic: () => ExpirationTime.fromDays(365),
   edge: () => ExpirationTime.fromDays(365),
+  pubkey: () => ExpirationTime.fromDays(365),
 };
 
 // The single server wallet must send Arkiv txs one-at-a-time: concurrent/rapid

@@ -109,6 +109,7 @@ Per-session summaries, embedded and linked into a per-user topic + similarity gr
 
 - **Payload:** `{ summary, topics[], embedding[] }` (embedding from OpenAI `text-embedding-3-small`).
 - **expiresIn:** `fromDays(365)`.
+- **Encrypted variant:** carries the extra attribute `enc="v1"` and payload `{ enc, ciphertext, nonce }` (base64) instead of `{ summary, topics, embedding }`.
 
 ### Topic
 Canonical, deduped topic node (find-or-create by `topicKey`).
@@ -152,6 +153,39 @@ Many-to-many edge enabling topic fetch.
 
 ---
 
+## PubKey
+One entity per wallet; stores the public X25519 key used to encrypt session summaries for the owner.
+
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` | str | eq | |
+| `entityType` | str | eq | `pubkey` |
+| `owner` | str | eq | wallet address = `$creator` |
+| `createdAt` | **num** | range | epoch ms |
+
+- **Payload:** `{ x25519Pub, scheme }`.
+- **expiresIn:** `fromDays(365)`.
+- Note: does NOT carry `agentId` — one record per wallet address, not per agent.
+
+## AccessGrant
+Wrapped-key entity granting decrypt access to an encrypted summary. Auto-revokes via expiry.
+
+| Attribute | Type | Index | Notes |
+|---|---|---|---|
+| `project` / `entityType` / `agentId` | str | eq | `entityType` = `accessGrant` |
+| `resourceKey` | str | eq | the encrypted summary entity key |
+| `resourceType` | str | eq | `summary` |
+| `granteeAgentId` | str | eq | `""` for self-grant |
+| `granteeAddress` | str | eq | wallet that can decrypt — queried on read |
+| `expiresAt` | **num** | range | epoch ms; grant validity end |
+| `createdAt` | **num** | range | epoch ms |
+
+- **Payload:** `{ wrappedKey, ephemeralPub, nonce }` (base64).
+- **expiresIn:** configurable per grant (1h / 24h / 7d / custom; self-grant = 365d).
+- Auto-revoke: when the grant expires Arkiv stops returning it = access revoked, no revocation list. Revoke early = delete; extend = `extendEntity`.
+
+---
+
 ## Query patterns
 
 - **Browse agents:** `eq(project) ∧ eq(entityType,"agentCard")` + `.createdBy(AGENT_ADDRESS)`.
@@ -162,3 +196,5 @@ Many-to-many edge enabling topic fetch.
 - **Topic fetch:** `eq(entityType,"summaryTopic") ∧ eq(agentId,A) ∧ eq(callerId,C) ∧ eq(topicKey,T)` → `summaryKey`s → fetch summaries.
 - **RAG retrieve:** gather candidate summaries (topic-gated via `summaryTopic`, else recent `eq(entityType,"summary") ∧ eq(callerId,C)`) → re-rank by cosine of `embedding` vs query embedding → top-k.
 - **Related sessions:** `eq(entityType,"summaryLink") ∧ eq(srcSummaryKey,S)` → `dstSummaryKey`s.
+- **Resolve pubkey:** `eq(entityType,"pubkey") ∧ eq(owner,addr)` (no `createdBy` scope — reads any wallet's pubkey).
+- **Grants for me:** `eq(entityType,"accessGrant") ∧ eq(granteeAddress,me)` (expired grants auto-omitted = auto-revoke).
