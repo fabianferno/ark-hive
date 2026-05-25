@@ -10,6 +10,5 @@ IDEA.md
 # installed tooling / runtime artifacts
 .agents/
 bun.lock
-skills-lock.json
 IDEA.md
 docs/
