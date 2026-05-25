@@ -8,13 +8,14 @@ import { eq, gt } from "@arkiv-network/sdk/query";
 import {
   agentCardAttrs, sessionAttrs, messageAttrs, snapshotAttrs, memoryAttrs,
   summaryAttrs, topicAttrs, summaryTopicAttrs, summaryLinkAttrs,
-  type Attr, type MessageFields, type MemoryFields,
+  pubkeyAttrs, accessGrantAttrs,
+  type Attr, type MessageFields, type MemoryFields, type AccessGrantFields,
 } from "./entities";
 import { PROJECT_ATTRIBUTE } from "./project";
 import type { Condition } from "./search";
 import type { ClientCtx } from "./ctx";
 
-export interface DecodedEntity { key: string; payload: unknown; attrs: Record<string, string | number>; }
+export interface DecodedEntity { key: string; payload: unknown; attrs: Record<string, string | number>; owner?: string; creator?: string; }
 
 function toConditions(conds: Condition[]) {
   return conds.map((c) => (c.op === "gt" ? gt(c.key, c.value) : eq(c.key, c.value)));
@@ -44,6 +45,20 @@ export async function query(ctx: ClientCtx, conditions: Condition[], limit = 50)
   return res.entities.map((e: any) => ({ key: e.key, payload: safeJson(e), attrs: attrsToRecord(e) }));
 }
 
+/** Unscoped query (no createdBy filter) — needed to read entities created by OTHER
+ *  users (e.g. a recipient's pubkey, or grants where I am the grantee). Returns
+ *  owner/creator from metadata. Reads only; never goes through serializeWrite. */
+export async function queryGlobal(ctx: ClientCtx, conditions: Condition[], limit = 50): Promise<DecodedEntity[]> {
+  let q = ctx.publicClient.buildQuery();
+  for (const cond of toConditions(conditions)) q = q.where(cond);
+  const res = await q.withPayload(true).withAttributes(true).withMetadata(true).limit(limit).fetch();
+  return res.entities.map((e: any) => ({
+    key: e.key, payload: safeJson(e), attrs: attrsToRecord(e),
+    owner: e.owner ? String(e.owner) : undefined,
+    creator: e.creator ? String(e.creator) : undefined,
+  }));
+}
+
 export const Expiry = {
   agentCard: () => ExpirationTime.fromDays(365),
   session: () => ExpirationTime.fromHours(12),
@@ -56,6 +71,7 @@ export const Expiry = {
   summary: () => ExpirationTime.fromDays(365),
   topic: () => ExpirationTime.fromDays(365),
   edge: () => ExpirationTime.fromDays(365),
+  pubkey: () => ExpirationTime.fromDays(365),
 };
 
 // A browser wallet must send Arkiv txs one-at-a-time: concurrent/rapid writes
@@ -104,6 +120,12 @@ export interface ClientRepo {
   createSummaryTopic(f: { agentId: string; callerId: string; summaryKey: string; topicKey: string; sessionKey: string }): Promise<{ entityKey: string; txHash: string }>;
   createSummaryLink(f: { agentId: string; callerId: string; srcSummaryKey: string; dstSummaryKey: string; score: number }): Promise<{ entityKey: string; txHash: string }>;
   updateSessionActivity(f: { sessionKey: string; agentId: string; callerId: string; startedAt: number; turnCount: number; sessionStatus?: string }): Promise<void>;
+  createPubKey(f: { owner: string; x25519Pub: string; scheme: string }): Promise<{ entityKey: string; txHash: string }>;
+  createEncryptedSummary(f: { agentId: string; callerId: string; sessionKey: string; summarySeq: number; ciphertext: string; nonce: string }): Promise<{ entityKey: string; txHash: string }>;
+  createAccessGrant(f: AccessGrantFields & { wrappedKey: string; ephemeralPub: string; nonce: string; expiresInSec: number }): Promise<{ entityKey: string; txHash: string }>;
+  deleteEntity(entityKey: string): Promise<void>;
+  extendEntity(entityKey: string, expiresIn: number): Promise<void>;
+  queryGlobal(conditions: Condition[], limit?: number): Promise<DecodedEntity[]>;
   query(conditions: Condition[], limit?: number): Promise<DecodedEntity[]>;
 }
 
@@ -176,6 +198,32 @@ export function makeRepo(ctx: ClientCtx): ClientRepo {
         }),
         expiresIn: Expiry.session(),
       }));
+    },
+    createPubKey(f) {
+      return create(ctx, { x25519Pub: f.x25519Pub, scheme: f.scheme },
+        pubkeyAttrs(PROJECT_ATTRIBUTE, { owner: f.owner, createdAt: Date.now() }), Expiry.pubkey());
+    },
+    createEncryptedSummary(f) {
+      return create(ctx, { enc: "v1", ciphertext: f.ciphertext, nonce: f.nonce },
+        summaryAttrs(PROJECT_ATTRIBUTE, { agentId: f.agentId, callerId: f.callerId, sessionKey: f.sessionKey, summarySeq: f.summarySeq, createdAt: Date.now(), enc: "v1" }),
+        Expiry.summary());
+    },
+    createAccessGrant(f) {
+      return create(ctx, { wrappedKey: f.wrappedKey, ephemeralPub: f.ephemeralPub, nonce: f.nonce },
+        accessGrantAttrs(PROJECT_ATTRIBUTE, {
+          agentId: f.agentId, resourceKey: f.resourceKey, resourceType: f.resourceType,
+          granteeAgentId: f.granteeAgentId, granteeAddress: f.granteeAddress,
+          expiresAt: f.expiresAt, createdAt: Date.now(),
+        }), f.expiresInSec);
+    },
+    async deleteEntity(entityKey) {
+      await serializeWrite(() => ctx.wallet.deleteEntity({ entityKey: entityKey as `0x${string}` }));
+    },
+    async extendEntity(entityKey, expiresIn) {
+      await serializeWrite(() => ctx.wallet.extendEntity({ entityKey: entityKey as `0x${string}`, expiresIn }));
+    },
+    queryGlobal(conditions, limit = 50) {
+      return queryGlobal(ctx, conditions, limit);
     },
     query(conditions, limit = 50) {
       return query(ctx, conditions, limit);
