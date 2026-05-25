@@ -15,18 +15,23 @@ export interface ChatTurn { role: "user" | "assistant"; content: string; }
 // Default top-k for retrieval (mirrors the server's RAG_TOP_K default of 4).
 const DEFAULT_RAG_TOP_K = 4;
 
-interface SummaryRow { key: string; summary: string; embedding: number[]; sessionKey: string; topics: string[]; }
+interface SummaryRow { key: string; summary: string; embedding: number[]; sessionKey: string; topics: string[]; encrypted: boolean; }
 
 function toSummaryRow(r: { key: string; payload: unknown; attrs: Record<string, string | number> }): SummaryRow {
+  const encrypted = String(r.attrs.enc ?? "") === "v1";
   const p = r.payload as { summary?: string; embedding?: number[]; topics?: string[] } | null;
   return {
     key: r.key,
-    summary: p?.summary ?? "",
-    embedding: Array.isArray(p?.embedding) ? p!.embedding! : [],
+    summary: encrypted ? "" : (p?.summary ?? ""),
+    embedding: !encrypted && Array.isArray(p?.embedding) ? p!.embedding! : [],
     sessionKey: String(r.attrs.sessionKey ?? ""),
-    topics: Array.isArray(p?.topics) ? p!.topics! : [],
+    topics: !encrypted && Array.isArray(p?.topics) ? p!.topics! : [],
+    encrypted,
   };
 }
+
+/** Test-only export. */
+export const __toSummaryRowForTest = toSummaryRow;
 
 // A summary matches a normalized query topic if any of its own topics overlaps it.
 function topicMatches(rowTopics: string[], queryKey: string): boolean {
