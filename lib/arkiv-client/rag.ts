@@ -2,7 +2,7 @@
 // Client-side RAG, ported from agent/src/rag/rag.ts. Summarize + embed run on the
 // stateless AI server (aiSummarize/aiEmbed); all Arkiv writes are signed by the
 // user's Privy wallet via the ctx repo. Edge writes stay FIRE-AND-FORGET.
-import { makeRepo, query as repoQuery, findTopic, summariesForCaller, summaryKeysForTopic } from "./repo";
+import { makeRepo, query as repoQuery, findTopic, summariesForCaller } from "./repo";
 import { PROJECT_ATTRIBUTE } from "./project";
 import { topK, cosine } from "./vector";
 import { normalizeTopic } from "./topics";
@@ -15,11 +15,25 @@ export interface ChatTurn { role: "user" | "assistant"; content: string; }
 // Default top-k for retrieval (mirrors the server's RAG_TOP_K default of 4).
 const DEFAULT_RAG_TOP_K = 4;
 
-interface SummaryRow { key: string; summary: string; embedding: number[]; sessionKey: string; }
+interface SummaryRow { key: string; summary: string; embedding: number[]; sessionKey: string; topics: string[]; }
 
 function toSummaryRow(r: { key: string; payload: unknown; attrs: Record<string, string | number> }): SummaryRow {
-  const p = r.payload as { summary?: string; embedding?: number[] } | null;
-  return { key: r.key, summary: p?.summary ?? "", embedding: Array.isArray(p?.embedding) ? p!.embedding! : [], sessionKey: String(r.attrs.sessionKey ?? "") };
+  const p = r.payload as { summary?: string; embedding?: number[]; topics?: string[] } | null;
+  return {
+    key: r.key,
+    summary: p?.summary ?? "",
+    embedding: Array.isArray(p?.embedding) ? p!.embedding! : [],
+    sessionKey: String(r.attrs.sessionKey ?? ""),
+    topics: Array.isArray(p?.topics) ? p!.topics! : [],
+  };
+}
+
+// A summary matches a normalized query topic if any of its own topics overlaps it.
+function topicMatches(rowTopics: string[], queryKey: string): boolean {
+  return rowTopics.some((t) => {
+    const nk = normalizeTopic(t);
+    return nk === queryKey || nk.includes(queryKey) || queryKey.includes(nk);
+  });
 }
 
 async function loadSessionTurns(ctx: ClientCtx, sessionKey: string): Promise<ChatTurn[]> {
@@ -80,24 +94,30 @@ async function writeGraphEdges(
 export async function retrieve(ctx: ClientCtx, queryText: string, opts: { agentId: string; callerId: string; k?: number }): Promise<string[]> {
   const k = opts.k ?? DEFAULT_RAG_TOP_K;
   const qVec = await aiEmbed(queryText);
-  const tokens = queryText.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
-  const candidateKeys = new Set<string>();
-  for (const tok of tokens) {
-    const topicKey = normalizeTopic(tok);
-    if (!topicKey) continue;
-    for (const key of await summaryKeysForTopic(ctx, opts.agentId, opts.callerId, topicKey, 50)) candidateKeys.add(key);
-  }
+  const qTopics = queryText.toLowerCase().split(/[^a-z0-9]+/).map(normalizeTopic).filter((w) => w.length > 3);
   const all = (await summariesForCaller(ctx, opts.agentId, opts.callerId, 100)).map(toSummaryRow).filter((s) => s.embedding.length);
-  const tagged = candidateKeys.size ? all.filter((s) => candidateKeys.has(s.key)) : [];
+  // Topic-gate on each summary's own topics (payload) — robust even if edge writes failed.
+  const tagged = qTopics.length ? all.filter((s) => qTopics.some((q) => topicMatches(s.topics, q))) : [];
   const pool = tagged.length ? tagged : all;   // topic-gated when topics match, else recency fallback
   return topK(qVec, pool.map((s) => ({ vec: s.embedding, item: s })), k).map((s) => s.summary);
 }
 
-/** Explicit topic fetch: normalize → Topic → SummaryTopic → summaries. */
+/** Topic/knowledge search: (1) match the query against each summary's topics or
+ *  text; (2) if nothing matches exactly, fall back to SEMANTIC ranking (embed the
+ *  query, cosine vs summary embeddings) so e.g. "name" finds an "introduction"
+ *  session. Robust even when SummaryTopic edge writes failed. */
 export async function topicFetch(ctx: ClientCtx, topic: string, opts: { agentId: string; callerId: string }): Promise<string[]> {
   const topicKey = normalizeTopic(topic);
   if (!topicKey) return [];
-  const keys = new Set(await summaryKeysForTopic(ctx, opts.agentId, opts.callerId, topicKey, 100));
   const all = (await summariesForCaller(ctx, opts.agentId, opts.callerId, 200)).map(toSummaryRow);
-  return all.filter((s) => keys.has(s.key)).map((s) => s.summary);
+  const term = topic.toLowerCase().trim();
+
+  const exact = all.filter((s) => topicMatches(s.topics, topicKey) || s.summary.toLowerCase().includes(term));
+  if (exact.length) return exact.map((s) => s.summary);
+
+  // Semantic fallback — rank all embedded summaries by cosine to the query.
+  const embedded = all.filter((s) => s.embedding.length);
+  if (!embedded.length) return [];
+  const qVec = await aiEmbed(topic);
+  return topK(qVec, embedded.map((s) => ({ vec: s.embedding, item: s })), 5).map((s) => s.summary);
 }
