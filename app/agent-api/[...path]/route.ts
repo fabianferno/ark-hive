@@ -1,6 +1,8 @@
 import { type NextRequest } from "next/server";
 
-const ORIGIN = process.env.AGENT_ORIGIN ?? "http://localhost:8787";
+// Default to the public deployment so local dev works without running the agent
+// service locally. Override with AGENT_ORIGIN=http://localhost:8787 for local agent dev.
+const ORIGIN = process.env.AGENT_ORIGIN ?? "https://arkhive.crevn.xyz";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;

@@ -6,16 +6,22 @@ import { ipfsHttpUrl } from "@/lib/agentClient";
 import type { MarketplaceAgent } from "@/lib/agent/registry";
 
 export function MarketplaceCard({
-  agent, mine, adopted, onAdopt, adopting,
+  agent, mine, adopted, onAdopt, adopting, onOpen,
 }: {
   agent: MarketplaceAgent;
   mine: boolean;
   adopted: boolean;
   onAdopt: () => void;
   adopting: boolean;
+  onOpen: () => void;
 }) {
   return (
-    <GlowCard variant="accent" glow={false} className="flex flex-col gap-2 p-4">
+    <div onClick={onOpen} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }} className="cursor-pointer">
+    <GlowCard
+      variant="accent"
+      glow={false}
+      className="flex flex-col gap-2 p-4 transition hover:bg-white/[0.02]"
+    >
       <div className="flex items-center gap-3">
         {agent.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -37,12 +43,16 @@ export function MarketplaceCard({
       )}
       <div className="mt-auto flex items-center justify-between pt-2">
         {agent.tokenURI ? (
-          <a href={ipfsHttpUrl(agent.tokenURI)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline">
+          <a
+            href={ipfsHttpUrl(agent.tokenURI)} target="_blank" rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"
+          >
             <ExternalLink size={10} /> card
           </a>
         ) : <span />}
         <button
-          onClick={onAdopt}
+          onClick={(e) => { e.stopPropagation(); onAdopt(); }}
           disabled={mine || adopted || adopting}
           className="btn-primary px-3 py-1 text-xs disabled:opacity-40"
         >
@@ -50,5 +60,6 @@ export function MarketplaceCard({
         </button>
       </div>
     </GlowCard>
+    </div>
   );
 }

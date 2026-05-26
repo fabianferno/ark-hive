@@ -31,7 +31,13 @@ export function AgentList({ agents, onOpen, onNew, loading }: {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {agents.map((a) => (
           <GlowCard key={a.key} variant="accent" interactive className="p-5">
-            <button onClick={() => onOpen(a.agentId)} className="w-full text-left">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpen(a.agentId)}
+              onKeyDown={(e) => { if (e.key === "Enter") onOpen(a.agentId); }}
+              className="w-full cursor-pointer text-left"
+            >
               <div className="mb-3 flex items-start justify-between">
                 <IconChip icon={Bot} />
                 <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-accent">
@@ -40,10 +46,10 @@ export function AgentList({ agents, onOpen, onNew, loading }: {
               </div>
               <span className="font-display text-lg font-semibold text-fg">{a.name || "Unnamed"}</span>
               <div className="mt-1 font-mono text-xs text-fg-muted">8004 agentId {a.agentId}</div>
-              {a.ensName && <div className="mt-1"><EnsBadge name={a.ensName} /></div>}
+              {a.ensName && <div className="mt-1" onClick={(e) => e.stopPropagation()}><EnsBadge name={a.ensName} /></div>}
               <div className="mt-1 font-mono text-[11px] text-fg-faint">{chainLabel(a.registryChainId)}</div>
               <div className="mt-2 line-clamp-2 font-sans text-sm text-fg-muted">{a.description}</div>
-            </button>
+            </div>
             {a.agentCardUri && (
               <a href={ipfsHttpUrl(a.agentCardUri)} target="_blank" rel="noreferrer"
                 onClick={(e) => e.stopPropagation()}

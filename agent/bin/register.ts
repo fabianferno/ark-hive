@@ -4,8 +4,9 @@ import { Repo } from "../src/repo";
 
 const name = process.argv[2] ?? "AgentState Demo Agent";
 const description = process.argv[3] ?? "An ERC-8004 agent with Arkiv-backed memory";
+const domain = process.argv[4]; // optional — sets the chat endpoint URL in the card
 
-const id = await registerIdentity({ name, description, capabilities: ["chat", "memory-search"] });
+const id = await registerIdentity({ name, description, capabilities: ["chat", "memory-search"], domain });
 console.log("Registered 8004 identity:", id.agentId, "tx", id.txHash);
 if (id.agentCardUri) {
   console.log("Agent card pinned to IPFS:", id.agentCardUri);

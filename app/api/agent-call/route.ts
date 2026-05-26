@@ -30,9 +30,9 @@ async function parseReply(r: Response): Promise<string> {
 }
 
 export async function POST(req: Request) {
-  let body: { url?: string; message?: string; history?: unknown; xPayment?: string };
+  let body: { url?: string; message?: string; history?: unknown; knowledge?: unknown; xPayment?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "bad body" }, { status: 400 }); }
-  const { url, message, history, xPayment } = body;
+  const { url, message, history, knowledge, xPayment } = body;
   if (!url || !/^https?:\/\//.test(url)) return NextResponse.json({ error: "bad url" }, { status: 400 });
   let parsed: URL;
   try { parsed = new URL(url); } catch { return NextResponse.json({ error: "bad url" }, { status: 400 }); }
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const r = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, knowledge }),
       signal: AbortSignal.timeout(18_000),
     });
     if (r.status === 402) {

@@ -30,8 +30,15 @@ function ShareSummary({ agentId, summary }: { agentId: string; summary: UiSummar
   const [open, setOpen] = useState(false);
   const [granteeAgentId, setGranteeAgentId] = useState("");
   const [expiresInSec, setExpiresInSec] = useState(86400);
+  const [customMin, setCustomMin] = useState<string>("");
 
   const share = useEncryptAndShare(agentId);
+
+  function effectiveSeconds(): number {
+    const m = Number(customMin);
+    if (Number.isFinite(m) && m > 0) return Math.floor(m * 60);
+    return expiresInSec;
+  }
 
   function handleShare() {
     if (!granteeAgentId) return;
@@ -43,13 +50,14 @@ function ShareSummary({ agentId, summary }: { agentId: string; summary: UiSummar
         topics: summary.topics,
         originalKey: summary.key,
         granteeAgentId,
-        expiresInSec,
+        expiresInSec: effectiveSeconds(),
       },
       {
         onSuccess: () => {
           setOpen(false);
           setGranteeAgentId("");
           setExpiresInSec(86400);
+          setCustomMin("");
         },
       }
     );
@@ -75,13 +83,28 @@ function ShareSummary({ agentId, summary }: { agentId: string; summary: UiSummar
 
           <select
             value={expiresInSec}
-            onChange={(e) => setExpiresInSec(Number(e.target.value))}
-            className="input w-auto py-1.5 text-xs"
+            onChange={(e) => { setExpiresInSec(Number(e.target.value)); setCustomMin(""); }}
+            disabled={!!customMin}
+            className="input w-auto py-1.5 text-xs disabled:opacity-50"
           >
+            <option value={60}>1 minute</option>
+            <option value={180}>3 minutes</option>
+            <option value={600}>10 minutes</option>
+            <option value={1800}>30 minutes</option>
             <option value={3600}>1 hour</option>
             <option value={86400}>24 hours</option>
             <option value={604800}>7 days</option>
           </select>
+
+          <input
+            type="number"
+            min={1}
+            placeholder="custom min"
+            value={customMin}
+            onChange={(e) => setCustomMin(e.target.value)}
+            className="input w-24 py-1.5 text-xs"
+            title="Custom expiry in minutes (overrides the preset)"
+          />
 
           <button
             onClick={handleShare}

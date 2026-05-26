@@ -3,17 +3,21 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { MarketplaceCard } from "@/components/marketplace/MarketplaceCard";
+import { AgentDetailsDialog } from "@/components/marketplace/AgentDetailsDialog";
 import { useMarketplace } from "@/lib/hooks/useMarketplace";
 import { useAgentsList, useAdoptAgent } from "@/lib/hooks/useAgents";
 import { useUserWallet } from "@/lib/wallet/useUserWallet";
+import type { MarketplaceAgent } from "@/lib/agent/registry";
 
 export default function MarketplacePage() {
   const [term, setTerm] = useState("");
+  const [selected, setSelected] = useState<MarketplaceAgent | null>(null);
   const mkt = useMarketplace();
   const mine = useAgentsList();
   const adopt = useAdoptAgent();
   const { address } = useUserWallet();
   const adoptedIds = useMemo(() => new Set((mine.data ?? []).map((a) => a.agentId)), [mine.data]);
+  const isMine = (a: MarketplaceAgent) => !!address && a.owner === address.toLowerCase();
 
   const agents = useMemo(() => {
     const t = term.trim().toLowerCase();
@@ -43,13 +47,22 @@ export default function MarketplacePage() {
             <MarketplaceCard
               key={a.agentId}
               agent={a}
-              mine={!!address && a.owner === address.toLowerCase()}
+              mine={isMine(a)}
               adopted={adoptedIds.has(a.agentId)}
               adopting={adopt.isPending && adopt.variables?.agentId === a.agentId}
               onAdopt={() => adopt.mutate(a)}
+              onOpen={() => setSelected(a)}
             />
           ))}
         </div>
+        <AgentDetailsDialog
+          agent={selected}
+          mine={selected ? isMine(selected) : false}
+          adopted={selected ? adoptedIds.has(selected.agentId) : false}
+          adopting={adopt.isPending && !!selected && adopt.variables?.agentId === selected.agentId}
+          onAdopt={() => { if (selected) adopt.mutate(selected); }}
+          onClose={() => setSelected(null)}
+        />
         {!mkt.isLoading && !mkt.isError && agents.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center font-sans text-fg-muted">
             No agents found.

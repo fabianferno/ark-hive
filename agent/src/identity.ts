@@ -31,7 +31,7 @@ export interface RegisteredAgent {
   card: AgentCard;
 }
 
-export async function registerIdentity(opts: { name: string; description: string; capabilities: string[]; domain?: string; version?: string; image?: string; contact?: string }): Promise<RegisteredAgent> {
+export async function registerIdentity(opts: { name: string; description: string; capabilities: string[]; domain?: string; version?: string; image?: string; contact?: string; endpoint?: string }): Promise<RegisteredAgent> {
   const sdk: any = makeSdk(opts.name);
   const agentAddress: string = await sdk.getAddress();
   const card = buildAgentCard({
@@ -39,7 +39,7 @@ export async function registerIdentity(opts: { name: string; description: string
     capabilities: opts.capabilities, version: opts.version || config.agentVersion,
     registryAddress: REGISTRY_ADDRESS, chainId: REGISTRY_CHAIN_ID, agentAddress,
     image: (opts.image ?? config.agentImage) || undefined, contact: (opts.contact ?? config.agentContact) || undefined,
-    endpoints: [{ name: "chat", url: `https://${opts.domain || config.agentDomain}/chat` }],
+    endpoints: [{ name: "chat", url: opts.endpoint || `https://${opts.domain || config.agentDomain}/chat` }],
   });
 
   let agentCardUri = "";

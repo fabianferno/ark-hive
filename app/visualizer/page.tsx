@@ -16,6 +16,8 @@ import { buildTopicGraph, type VizSummary } from "@/lib/graph/buildTopicGraph";
 import { AppShell } from "@/components/app/AppShell";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
 import { NeuralGraph3D, type NeuralGraph3DHandle } from "@/components/graph/NeuralGraph3D";
+import { arkivExplorerEntityUrl } from "@/lib/arkiv/explorer";
+import { ExternalLink } from "lucide-react";
 
 type Selection =
   | { kind: "topic"; topicKey: string; label: string }
@@ -209,6 +211,18 @@ function VisualizerInner() {
             <div>
               <div className="font-mono text-[11px] uppercase tracking-wide text-fg-muted">Session summary</div>
               <div className="font-mono text-[11px] text-fg-muted">session {sel.summary.sessionKey.slice(0, 14)}… · {fmtDate(sel.summary.createdAt)}</div>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface-2 p-2.5 font-mono text-[11px]">
+              <a href={arkivExplorerEntityUrl(sel.summary.key)} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-accent hover:underline">
+                <ExternalLink size={12} /> summary entity · {sel.summary.key.slice(0, 12)}…
+              </a>
+              {sel.summary.sessionKey && (
+                <a href={arkivExplorerEntityUrl(sel.summary.sessionKey)} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-accent hover:underline">
+                  <ExternalLink size={12} /> session entity · {sel.summary.sessionKey.slice(0, 12)}…
+                </a>
+              )}
             </div>
             <p className="font-sans text-sm leading-relaxed text-fg">{sel.summary.summary}</p>
             <div>

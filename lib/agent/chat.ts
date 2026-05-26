@@ -97,23 +97,23 @@ function personaPrompt(card: NonNullable<AgentRuntime["card"]>): string {
   return `You are "${card.name ?? "an agent"}". ${card.description ?? ""}.${caps} Stay in character.`;
 }
 
-async function postAgentCall(url: string, message: string, history: ChatTurn[], xPayment?: string): Promise<{ reply?: string; status?: number; accepts?: unknown[]; error?: string }> {
+async function postAgentCall(url: string, message: string, history: ChatTurn[], knowledge: string[], xPayment?: string): Promise<{ reply?: string; status?: number; accepts?: unknown[]; error?: string }> {
   const r = await fetch("/api/agent-call", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url, message, history, xPayment }),
+    body: JSON.stringify({ url, message, history, knowledge, xPayment }),
     signal: AbortSignal.timeout(25_000),
   });
   return r.json().catch(() => ({ error: `agent-call ${r.status}` }));
 }
 
-async function callAgentEndpoint(url: string, message: string, history: ChatTurn[], onPay?: OnPaymentRequired): Promise<string> {
-  let res = await postAgentCall(url, message, history);
+async function callAgentEndpoint(url: string, message: string, history: ChatTurn[], knowledge: string[], onPay?: OnPaymentRequired): Promise<string> {
+  let res = await postAgentCall(url, message, history, knowledge);
   if (res.status === 402) {
     if (!onPay) throw new Error("payment required (no handler)");
     const xPayment = await onPay(res.accepts ?? []);
     if (!xPayment) throw new Error("payment declined");
-    res = await postAgentCall(url, message, history, xPayment);
+    res = await postAgentCall(url, message, history, knowledge, xPayment);
   }
   if (typeof res.reply !== "string") throw new Error(res.error ?? "no reply");
   return res.reply;
@@ -123,7 +123,7 @@ export async function produceReply(
   agent: AgentRuntime, text: string, turns: ChatTurn[], knowledge: string[], onPay?: OnPaymentRequired,
 ): Promise<string> {
   if (agent.endpoint) {
-    try { return await callAgentEndpoint(agent.endpoint, text, turns, onPay); }
+    try { return await callAgentEndpoint(agent.endpoint, text, turns, knowledge, onPay); }
     catch (e) { console.warn("endpoint call failed, persona fallback:", (e as Error).message); }
   }
   const persona = agent.card ? personaPrompt(agent.card) : undefined;
@@ -163,9 +163,13 @@ export async function chatTurn(ctx: ClientCtx, opts: { sessionKey: string; text:
 
   // Shared knowledge: summaries another agent granted to THIS agent (access grants
   // where I'm the grantee, scoped to this agentId). Decrypt + add to context.
-  // Expired grants are already gone from Arkiv (TTL), so this self-limits.
+  // Filter by expiresAt defensively — Arkiv TTL purge has latency, so a recently
+  // expired grant could still come back from a query until it's swept.
   try {
-    const grants = (await listGrantsForMe(ctx)).filter((g) => g.granteeAgentId === agentId);
+    const now = Date.now();
+    const grants = (await listGrantsForMe(ctx)).filter(
+      (g) => g.granteeAgentId === agentId && g.expiresAt > now,
+    );
     for (const g of grants) {
       try {
         const shared = await readSharedSummary(ctx, g);

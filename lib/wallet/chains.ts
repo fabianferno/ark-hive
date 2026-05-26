@@ -1,8 +1,21 @@
 // lib/wallet/chains.ts
 // Braga from the Arkiv SDK. Sepolia defined inline (do NOT import from "viem/chains":
 // that barrel pulls ox/tempo with a broken dynamic require that crashes client hydration).
-import { braga } from "@arkiv-network/sdk/chains";
+import { braga as bragaSdk } from "@arkiv-network/sdk/chains";
 import { defineChain } from "viem";
+
+// Route all Braga RPC traffic through the same-origin Next proxy (`/arkiv-rpc`)
+// because the public braga.hoodi.arkiv.network endpoint blocks browser POSTs
+// with a CORS/WAF 403. The proxy forwards server-side. Falls back to localhost
+// in SSR (process.env.ARKIV_RPC overrides server-side).
+const ARKIV_RPC = typeof window !== "undefined"
+  ? `${window.location.origin}/arkiv-rpc`
+  : (process.env.ARKIV_RPC ?? "http://localhost:3000/arkiv-rpc");
+
+export const braga = {
+  ...bragaSdk,
+  rpcUrls: { default: { http: [ARKIV_RPC] } },
+};
 
 export const sepolia = defineChain({
   id: 11155111,
@@ -25,8 +38,6 @@ export const baseSepolia = defineChain({
   blockExplorers: { default: { name: "Basescan", url: "https://sepolia.basescan.org" } },
   testnet: true,
 });
-
-export { braga };
 
 export const BRAGA_ID = 60138453102;
 export const SEPOLIA_ID = 11155111;

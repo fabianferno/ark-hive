@@ -14,11 +14,14 @@ export function useEncryptAndShare(agentId: string) {
   const { ctx } = useCtx();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { sessionKey: string; summarySeq: number; summary: string; topics: string[]; originalKey: string; granteeAgentId: string; expiresInSec: number }) =>
+    mutationFn: (v: { sessionKey: string; summarySeq: number; summary: string; topics: string[]; originalKey?: string; granteeAgentId: string; expiresInSec: number }) =>
       encryptAndShareSummary(ctx!, {
         agentId, sessionKey: v.sessionKey, summarySeq: v.summarySeq,
         plain: { summary: v.summary, topics: v.topics },
-        granteeAgentId: v.granteeAgentId, expiresInSec: v.expiresInSec, deleteOriginalKey: v.originalKey,
+        granteeAgentId: v.granteeAgentId, expiresInSec: v.expiresInSec,
+        // Intentionally do NOT pass deleteOriginalKey: keep the plaintext summary
+        // visible in the owner's knowledge list. The encrypted copy + grant are
+        // separate entities.
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["summaries", agentId] });
