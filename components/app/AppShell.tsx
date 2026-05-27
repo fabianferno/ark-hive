@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Search, Network, BookOpen, Wallet, Store } from "lucide-react";
+import { Bot, Search, Network, BookOpen, Wallet, Store, Package } from "lucide-react";
 import type { ReactNode } from "react";
 import { ConnectBar } from "@/components/app/ConnectBar";
 import { AppBrand } from "@/components/app/AppBrand";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/knowledge", label: "Knowledge", icon: BookOpen },
   { href: "/memory", label: "Memory", icon: Search },
   { href: "/visualizer", label: "Visualizer", icon: Network },
+  { href: "/integrations", label: "Integrations", icon: Package },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

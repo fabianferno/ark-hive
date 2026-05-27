@@ -1,0 +1,39 @@
+{
+  "name": "arkiv-agent-sdk",
+  "version": "0.1.0",
+  "description": "Portable agent memory + state on Arkiv. Read and write ERC-8004 agent sessions, messages, snapshots and memory entities from any TypeScript app.",
+  "license": "MIT",
+  "author": "ark-hive",
+  "homepage": "https://github.com/Philotheephilix/ark-hive#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Philotheephilix/ark-hive.git",
+    "directory": "packages/arkiv-agent-sdk"
+  },
+  "keywords": ["arkiv", "erc-8004", "agent", "memory", "state", "web3", "sdk"],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@arkiv-network/sdk": ">=0.6.0"
+  },
+  "devDependencies": {
+    "@arkiv-network/sdk": "^0.6.8",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}
